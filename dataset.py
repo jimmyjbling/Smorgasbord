@@ -23,6 +23,10 @@ unit_covert_dict = {
 
 # TODO make dataset iterable so that it can be used with torch data loaders
 
+# TODO someday add support for a given dataset to be passed rather than a file to be read in
+
+# TODO QUESTION: should we support datasets that do not have a molecule associated with them???
+
 
 class QSARDataset:
     def __init__(self, filepath, delimiter=None, curation="default", label_col=-1, smiles_col=1, label="auto",
@@ -40,7 +44,7 @@ class QSARDataset:
         the label can be continuous, binary or multiclass. If not told explicitly the program will attempt to infer
         the label, but this could result in incorrect assessment so optimal behavior would be to directly set this
 
-        the dataset can be curated to standardize chemicals and remove mixture and duplicates using the chembl curation
+        the dataset can be curated to standardize chemicals and remove mixture and duplicates using the CHEMBL curation
         pipeline. Additionally, you can pass a custom curation function that takes in a list of rdkit mols and
         returns a curated list of rdkit mols. You can find guidelines for this function in the curation documentation
 
@@ -61,7 +65,7 @@ class QSARDataset:
         You create descriptors for your dataset by calling the relevant descriptor set name on the dataset. for example,
         dataset.rdkit(). You can also pass the generation parameters if they exist. for example dataset.morgan(3, 1024)
         get you the morgan fingerprints of radius 3 nbits 1024. You can reference the descriptor documentation for
-        possible descriptors and their arguments. Once generated, descriptors will be cached so they will only need to
+        possible descriptors and their arguments. Once generated, descriptors will be cached, so they will only need to
         be generated once for a given argument setting. If you make the same call to the same descriptor set again it
         will reference this cache to save time.
 
@@ -169,7 +173,7 @@ class QSARDataset:
         except IndexError:
             raise ValueError("file type not defined please specify file type (.sdf, .csv, .tab, etc...)")
 
-        if tail == ".sdf":
+        if tail.lower() == "sdf":
             df = LoadSDF(filepath)
 
         else:
@@ -182,33 +186,33 @@ class QSARDataset:
                     delimiter = " "
             df = pd.read_csv(filepath, delimiter=delimiter)
 
+        # note dataset will always be indexed from 0 ... n if it is not we have a problem
         self.dataset = df
 
         ### COVERT COLUMN INDEX TO COLUMN NAMES AND CHECK###
         self._label_col = self._get_column_name(label_col)
         self._smiles_col = self._get_column_name(smiles_col)
         self._unit_col = self._get_column_name(unit_col)
-        self._mixture_cols = self._get_column_name(mixture_columns) if isinstance(mixture_columns, str) \
-            else [self._get_column_name(_) for _ in mixture_columns]
+        self._mixture_cols = self._get_column_name(mixture_columns)
+
+        # TODO lol the above wont work if a list of columns is passed, need to get the get_column_name to handle that
 
         if self._label_col is None:
             raise ValueError(f"Failed to recognize label_col of {label_col}. label_col is required")
 
         ### DETECT DATA STYLE OF LABEL COLUMN ###
 
-        labels = self.dataset[self._label_col]
-
         # TODO add support for multi label datasets
 
         if self.label == "auto":
-            _labels = labels.to_list()
+            _labels = self.dataset[self._label_col].to_list()
             try:
                 _labels = list(map(float, _labels))
 
                 if all([x.is_integer() for x in _labels]):
-                    guess_initial_label_class = "continuous"
-                else:
                     guess_initial_label_class = "class_int"
+                else:
+                    guess_initial_label_class = "continuous"
             except ValueError:
                 guess_initial_label_class = "class"
 
@@ -226,15 +230,18 @@ class QSARDataset:
 
         # save the initial labels to the dictionary
         if self.label == "continuous":
-            self.labels[self.label] = labels.astype(float)
+            self.labels[self.label] = self.dataset[self._label_col].astype(float)
         else:
-            self.labels[self.label] = labels
+            self.labels[self.label] = self.dataset[self._label_col]
 
         ### make an ROMol column if not already present ###
         if "ROMol" not in self.dataset.columns:
+            # TODO someday add support for inchi code and SELFIES to be the default too, not just smiles
             if self._smiles_col is not None:
                 try:
-                    self.dataset["ROMol"] = self.dataset[self.dataset.columns[self._smiles_col]].apply(Chem.MolFromSmiles)
+                    self.dataset["ROMol"] = self.dataset[self.dataset.columns[self._smiles_col]].apply(
+                        Chem.MolFromSmiles
+                    )
                 except TypeError:
                     raise ValueError(
                         f"failed to parse smiles_col at index location {self._smiles_col} verify "
@@ -255,7 +262,7 @@ class QSARDataset:
             pass
         else:
             # TODO add support for curation
-            raise NotImplemented("lol someone make me do this")
+            raise NotImplemented
 
         ### The following only needs to occur is the data is currently continuous
         if self.label == "continuous":
@@ -285,7 +292,7 @@ class QSARDataset:
 
         Parameters
         ------------------------------------
-            cutoff: (float or list(float) | optional default = None
+            cutoff: float or list(float) | optional default = None
                 the locations to make the class splits. ei [2] would make the two class, one < 2, and one >= 2
                 >5. If left as None will default to using num class or class names to determine number of requested
                 classes and will attempt to make every class equal in size
@@ -294,7 +301,7 @@ class QSARDataset:
                 n is number of classes. If not None, must match is length any other non None parameter
             return_cloned_df: (bool) | optional default = False
                 instead of assigning this label to the current dataframe object and making it the active label, will
-                return a cloned copy of the dataset object with this label set to active, leaving the orginal dataset
+                return a cloned copy of the dataset object with this label set to active, leaving the original dataset
                 object unchanged
 
         Returns
@@ -326,8 +333,8 @@ class QSARDataset:
 
         Parameters
         ------------------------------------
-            cutoff: (float or list(float) | optional default = None
-                the locations to make the class splits. ei [2,5] would make 3 class, one below 2, one from [2, 5) and
+            cutoff: float or list(float) | optional default = None
+                the locations to make the class splits. ei [2,5] would make 3 class, one below 2, one from (2, 5] and
                 >5. If left as None will default to using num class or class names to determine number of requested
                 classes and will attempt to make every class equal in size
             num_classes: (int) | optional default = None
@@ -338,7 +345,7 @@ class QSARDataset:
                 n is number of classes. If not None, must match is length any other non None parameter
             return_cloned_df: (bool) | optional default = False
                 instead of assigning this label to the current dataframe object and making it the active label, will
-                return a cloned copy of the dataset object with this label set to active, leaving the orginal dataset
+                return a cloned copy of the dataset object with this label set to active, leaving the original dataset
                 object unchanged
 
         Returns
@@ -360,6 +367,11 @@ class QSARDataset:
             if num_classes is None:
                 raise ValueError("if cutoff is None num_classes must not be None and greater than 1")
             else:
+                # TODO this will not work well if there are lots of duplicates in the dataset...
+                #  but a method that fixes this would slow down this greatly on large datasets...
+                #  maybe a trade of is having a check that looks for many duplicates in the dataset
+                #  or just let user know that this should not be used in such a case and manual cutoffs
+                #  need to be set???
                 cutoff = np.quantile(self.labels["continuous"], np.arange(1 / num_classes, 1, 1 / num_classes))
         self._multiclass_cutoff = cutoff
         if return_cloned_df:
@@ -375,10 +387,14 @@ class QSARDataset:
         else:
             class_names = np.arange(0, len(cutoff)+1)
 
-        cutoff = [0] + list(cutoff) + [1]
-        labels = np.full(len(class_names), "")
+        cutoff = [min(self.labels["continuous"].astype(float))-1] + list(cutoff) + \
+                 [max(self.labels["continuous"].astype(float))+1]
+        labels = np.full(self.labels["continuous"].shape[0], "")
         for i in range(len(class_names)):
-            labels[self.labels["continuous"].astype(float).between(cutoff[i], cutoff[i+1], inclusive="left")] = class_names[0]
+            # lol sorry I had to do this god
+            labels[self.labels["continuous"].astype(float).between(cutoff[i],
+                                                                   cutoff[i+1],
+                                                                   inclusive="right")] = class_names[i]
         return pd.Series(labels, index=self.labels["continuous"].index)
 
     @staticmethod
@@ -390,12 +406,12 @@ class QSARDataset:
             except TypeError:
                 cutoff = [cutoff]
 
-            if all([not isinstance(x, str) for x in cutoff]):
+            if not all([not isinstance(x, str) for x in cutoff]):
                 raise ValueError(f"cutoff values need to be numeric, not chars. found {cutoff} "
                                  f"of type {[type(x) for x in cutoff]}")
             return cutoff
         else:
-            return []
+            return None
 
     def scale_label(self, scale_factor):
         raise NotImplemented
@@ -410,6 +426,7 @@ class QSARDataset:
         # TODO implement function
 
     def _get_column_name(self, index):
+        # TODO handle if index is a list of column names or indices
         if index is not None:
             if isinstance(index, int):
                 if index < len(self.dataset.columns):
@@ -430,8 +447,17 @@ class QSARDataset:
         else:
             self._active_label = value
 
+    def _row_index_to_iloc(self, idx):
+        return self.dataset.index.get_loc(idx)
+
+    # TODO dont code drunk this child should all be __setattr__ and __getattribute__ stuff
+    # TODO write an exist func that gets is attribute exists
+
     def get_children(self):
         return list(self.children.keys())
+
+    def get_child(self, name):
+        return self.dataset.iloc[self.children[name]]
 
     def add_child(self, name, indices):
         if name in self.children.keys():
@@ -448,21 +474,24 @@ class QSARDataset:
 
     def model(self, model, name=None):
         raise NotImplemented
+        # TODO implement function
 
     def get_models(self, name=None):
         raise NotImplemented
+        # TODO implement function
 
     def remove_model(self, name):
         raise NotImplemented
+        # TODO implement function
 
     def screen(self, screening_dataset, model=None):
         raise NotImplemented
+        # TODO implement function
 
     def balance(self, method="downsample"):
         raise NotImplemented
+        # TODO implement function
 
     def cross_validate(self, cv, model=None):
         raise NotImplemented
-
-
-
+        # TODO implement function

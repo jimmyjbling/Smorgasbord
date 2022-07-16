@@ -67,3 +67,8 @@ def modi(data, labels):
 
     return (k ** -1) * modi_value
 
+
+def generate_citations(json_data):
+    raise NotImplemented
+    # TODO takes in the json parameters of the files and create a citation list that show all the citations a user
+    #  should make based on the software and methods used in that dataset
