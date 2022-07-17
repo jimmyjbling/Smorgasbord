@@ -4,6 +4,9 @@ from rdkit import Chem
 from rdkit.Chem.PandasTools import LoadSDF
 from collections import Counter
 from descriptor import DescriptorCalculator
+import copy
+from model import QSARModel
+import os
 
 unit_covert_dict = {
     "f": 10**-6,
@@ -114,19 +117,21 @@ class QSARDataset:
 
         # TODO add support for mixtures splits
 
-        self.label = label
-        self._active_label = label
-        self.desired_label = desired_label
+        self.name = os.path.basename(filepath)
+
+        self._label = label
+        self.active_label = label
         self.curation = curation
         self.mixture = mixture
 
         self._failed = []
 
-        self.labels = {}
-        self.masks = {}
+        self._labels = {}
         self.descriptor = DescriptorCalculator(cache=True)
 
-        self.children = {}
+        self._children = {}
+
+        self._models = {}
 
         self._random_state = np.random.randint(1e8)
         # TODO set a random state on init so that results are repeatable if wanted
@@ -204,7 +209,7 @@ class QSARDataset:
 
         # TODO add support for multi label datasets
 
-        if self.label == "auto":
+        if self._label == "auto":
             _labels = self.dataset[self._label_col].to_list()
             try:
                 _labels = list(map(float, _labels))
@@ -225,14 +230,14 @@ class QSARDataset:
                 else:
                     guess_initial_label_class = "binary"
 
-            self.label = guess_initial_label_class
-            self._active_label = guess_initial_label_class
+            self._label = guess_initial_label_class
+            self.active_label = guess_initial_label_class
 
         # save the initial labels to the dictionary
-        if self.label == "continuous":
-            self.labels[self.label] = self.dataset[self._label_col].astype(float)
+        if self._label == "continuous":
+            self._labels[self._label] = self.dataset[self._label_col].astype(float)
         else:
-            self.labels[self.label] = self.dataset[self._label_col]
+            self._labels[self._label] = self.dataset[self._label_col]
 
         ### make an ROMol column if not already present ###
         if "ROMol" not in self.dataset.columns:
@@ -265,18 +270,18 @@ class QSARDataset:
             raise NotImplemented
 
         ### The following only needs to occur is the data is currently continuous
-        if self.label == "continuous":
+        if self._label == "continuous":
 
             ### Convert units ###
             if self._unit_col is not None:
                 units = [unit_covert_dict[x[0]] for x in self.dataset[self._unit_col]]
-                self.labels[self.label] = self.labels[self.label] * units
+                self._labels[self._label] = self._labels[self._label] * units
 
             ### convert to desired label ###
-            if self.label != self.desired_label and self.desired_label is not None:
-                if self.desired_label == "binary":
+            if self._label != desired_label and desired_label is not None:
+                if desired_label == "binary":
                     self.to_binary(cutoff)
-                if self.desired_label == "multiclass":
+                if desired_label == "multiclass":
                     self.to_multiclass(cutoff)
 
     def to_binary(self, cutoff=None, class_names=None, return_cloned_df=False):
@@ -311,14 +316,21 @@ class QSARDataset:
         """
         cutoff = self._check_cutoff(cutoff)
         if cutoff is None:
-            cutoff = [np.median(self.labels["continuous"])]
+            cutoff = [np.median(self._labels["continuous"])]
         elif len(cutoff) > 1:
             cutoff = [cutoff[0]]
         self._binary_cutoff = cutoff
         if return_cloned_df:
             raise NotImplemented
             # TODO make the object clone able and return the new dataset object with just this label
-        self.labels["binary"] = self._split_data(cutoff=cutoff, class_names=class_names)
+        self._labels["binary"] = self._split_data(cutoff=cutoff, class_names=class_names)
+
+    def set_binary_label(self, label):
+        label = np.array(label)
+        assert len(label.shape) == 1
+        assert label.shape[0] == self.dataset.shape[0]
+        assert len(set(label)) == 2
+        self._labels["binary"] = label
 
     def to_multiclass(self, cutoff=None, num_classes=None, class_names=None, return_cloned_df=False):
         """
@@ -372,12 +384,18 @@ class QSARDataset:
                 #  maybe a trade of is having a check that looks for many duplicates in the dataset
                 #  or just let user know that this should not be used in such a case and manual cutoffs
                 #  need to be set???
-                cutoff = np.quantile(self.labels["continuous"], np.arange(1 / num_classes, 1, 1 / num_classes))
+                cutoff = np.quantile(self._labels["continuous"], np.arange(1 / num_classes, 1, 1 / num_classes))
         self._multiclass_cutoff = cutoff
         if return_cloned_df:
             raise NotImplemented
             # TODO make the object clone able and return the new dataset object with just this label
-        self.labels["multiclass"] = self._split_data(cutoff=cutoff, class_names=class_names)
+        self._labels["multiclass"] = self._split_data(cutoff=cutoff, class_names=class_names)
+
+    def set_multiclass_label(self, label):
+        label = np.array(label)
+        assert len(label.shape) == 1
+        assert label.shape[0] == self.dataset.shape[0]
+        self._labels["multiclass"] = label
 
     def _split_data(self, cutoff, class_names):
         if class_names is not None:
@@ -387,15 +405,15 @@ class QSARDataset:
         else:
             class_names = np.arange(0, len(cutoff)+1)
 
-        cutoff = [min(self.labels["continuous"].astype(float))-1] + list(cutoff) + \
-                 [max(self.labels["continuous"].astype(float))+1]
-        labels = np.full(self.labels["continuous"].shape[0], "")
+        cutoff = [min(self._labels["continuous"].astype(float)) - 1] + list(cutoff) + \
+                 [max(self._labels["continuous"].astype(float)) + 1]
+        labels = np.full(self._labels["continuous"].shape[0], "")
         for i in range(len(class_names)):
             # lol sorry I had to do this god
-            labels[self.labels["continuous"].astype(float).between(cutoff[i],
-                                                                   cutoff[i+1],
-                                                                   inclusive="right")] = class_names[i]
-        return pd.Series(labels, index=self.labels["continuous"].index)
+            labels[self._labels["continuous"].astype(float).between(cutoff[i],
+                                                                    cutoff[i+1],
+                                                                    inclusive="right")] = class_names[i]
+        return pd.Series(labels, index=self._labels["continuous"].index)
 
     @staticmethod
     def _check_cutoff(cutoff):
@@ -438,55 +456,198 @@ class QSARDataset:
 
     @property
     def active_label(self):
-        return self._active_label
+        return self.active_label
 
     @active_label.setter
     def active_label(self, value):
-        if value not in self.labels.keys():
+        if value not in self._labels.keys():
             raise ValueError("label does not exist")
         else:
-            self._active_label = value
+            self.active_label = value
 
-    def _row_index_to_iloc(self, idx):
-        return self.dataset.index.get_loc(idx)
+    def get_active_label(self):
+        return self.active_label
 
-    # TODO dont code drunk this child should all be __setattr__ and __getattribute__ stuff
-    # TODO write an exist func that gets is attribute exists
+    def add_label(self, name, label):
+        label = np.array(label)
+        assert len(label.shape) == 1
+        assert label.shape[0] == self.dataset.shape[0]
+        self._labels[name] = label
+
+    def get_label(self, name=None):
+        if name is None:
+            return self._labels
+        return self._labels[name]
+
+    def iter_labels(self):
+        for key, val in self._labels.items():
+            yield key, val
 
     def get_children(self):
-        return list(self.children.keys())
+        return self._children
 
-    def get_child(self, name):
-        return self.dataset.iloc[self.children[name]]
+    def get_child_dataset(self, name):
+        return self.dataset.loc[self._children[name]]
+
+    def get_child_mask(self, name):
+        return self._children[name]
 
     def add_child(self, name, indices):
-        if name in self.children.keys():
-            # TODO add in warning about overriding?
-            raise RuntimeWarning("child already exists overwriting")
-        self.children[name] = indices
+        self._children[name] = indices
+        self.__setattr__("name", indices)
+
+    def iter_children(self):
+        for key, val in self._children.items():
+            yield key, val
 
     def remove_child(self, name):
-        if name in self.children.keys():
-            del self.children[name]
-        else:
-            # TODO maybe just logging?
-            raise RuntimeWarning("child does not exist cannot delete")
+        if name in self._children.keys():
+            del self._children[name]
+            delattr(self, name)
 
-    def model(self, model, name=None):
-        raise NotImplemented
-        # TODO implement function
+    def calc_descriptor(self, name):
+        func_call = "calc_"+str(name)
+        if self.descriptor.func_exists(name):
+            self.descriptor.__getattribute__(func_call)(self.dataset)
+        else:
+            raise AttributeError(f"cannot find function to calculate descriptor set {name}. can calculate "
+                                 f"{[_.replace('calc_', '') for _ in dir(self.descriptor) if 'calc_' in _ and callable(self.descriptor.__getattribute__(_))]}")
+
+    def merge_descriptors(self, descriptors):
+        name = []
+        desc_sets = []
+        desc_options = ()
+        if isinstance(descriptors, str):
+            descriptors = [descriptors]
+        for desc in descriptors:
+            if desc in self.descriptor.__dict__.keys():
+                name.append(desc)
+                desc_options = desc_options + (self.descriptor.__getattribute__(desc)[0])
+                desc_sets.append(self.descriptor.__getattribute__(desc)[1])
+
+        assert len(set([_.shape for _ in desc_sets])) <= 1
+        assert len(set([_.shape[0] for _ in desc_sets])) <= 1
+
+        self.add_descriptor_set("_".join(name), np.concatenate(desc_sets, axis=-1))
+
+    def calc_custom_descriptor(self, name, func, kwargs=None):
+        self.descriptor.calc_custom(self.dataset, name, func, kwargs)
+
+    def add_descriptor_set(self, name, desc):
+        desc = np.array(desc)
+        if desc.shape[0] == self.dataset.shape[0]:
+            self.descriptor.add_descriptor(name, desc)
+
+    def model(self, model, name=None, child=None, desc="all", label=None, metrics=None):
+        if hasattr(model, "random_state"):
+            model.__setattr__("random_state", self._random_state)
+
+        if name is None:
+            name = len(self._models)
+            while name in self._models.keys():
+                name += 1
+
+        if isinstance(desc, str):
+            if desc == "all":
+                desc = self.descriptor.get_all_descriptors()
+            else:
+                desc = [tuple([desc]) + self.descriptor.__getattribute__(desc)]
+        else:
+            desc = [tuple([d]) + self.descriptor.__getattribute__(d) for d in desc]
+
+        if label is None:
+            label = self.active_label
+
+        y = self._labels[label]
+
+        if child is None:
+            child = self.get_children()
+        elif isinstance(child, str):
+            child = [self.get_child_mask(child)]
+        else:
+            child = [self.get_child_mask(c) for c in child]
+
+        for child_name, child_mask in child:
+            for desc_name, desc_setting, X in desc:
+                m = copy.deepcopy(model)
+                m.fit(X, y)
+                self._models[name] = QSARModel(self, m, name, child_mask, child_name, desc_name, desc_setting, label)
+
+        if metrics is not None:
+            pass
+            # TODO add in the ability to screen the training set by calling screen
 
     def get_models(self, name=None):
-        raise NotImplemented
-        # TODO implement function
+        if name is None:
+            return self._models
+        if isinstance(name, str):
+            return self._models[name]
+        return {n: self._models[n] for n in name}
 
     def remove_model(self, name):
-        raise NotImplemented
-        # TODO implement function
+        if name in self._models.keys():
+            del self._models[name]
 
-    def screen(self, screening_dataset, model=None):
-        raise NotImplemented
-        # TODO implement function
+    def screen(self, screening_dataset, model=None, metrics=None):
+        if model is None:
+            model = list(self.get_models().values())
+        elif not isinstance(model, (tuple, list)):
+            if isinstance(model, str):
+                model = [self.get_models(model)[model]]
+        else:
+            if isinstance(model[0], QSARModel):
+                model = model
+            elif isinstance(model[0], str):
+                model = [self.get_models(m)[m] for m in model]
+        if not isinstance(model[0], QSARModel):
+            raise ValueError(f"models are not valid. Make sure you are passing names of models that exist for this "
+                             f"dataset object or QSARModel objects. view model names with .get_models()")
+
+        if metrics is None:
+            if getattr(model, "_estimator_type", None) == "classifier":
+                metrics = "all_classification"
+            elif getattr(model, "_estimator_type", None) == "regressor":
+                metrics = "all_regression"
+            else:
+                raise ValueError("model does not define a _estimator_type, metrics must be stated explicitly")
+
+        metric_functions = __import__(metrics)
+        if isinstance(metrics, str):
+            if metrics == "all_classification":
+                metrics = getattr(metric_functions, "get_classification_metrics")()
+            elif metrics == "all_regression":
+                metrics = getattr(metric_functions, "get_regression_metrics")()
+            else:
+                metrics = {metrics: getattr(metric_functions, metrics)}
+        else:
+            metrics = {m: getattr(metric_functions, m) for m in metrics}
+
+        for m in model:
+            desc_name = m.desc_name
+            if desc_name in screening_dataset.descriptor.__dict__.keys():
+                desc = screening_dataset.descriptor.__getattribute__(desc_name)
+                desc_settings = m.desc_settings
+                if desc[0] != desc_settings:
+                    screening_dataset.calc_descriptor(desc_name)
+                    X = screening_dataset.descriptor.__getattribute__(desc_name)[1]
+                else:
+                    X = desc[1]
+            else:
+                raise ValueError(f"Could not find matching descriptor set in screening dataset. Model descriptor set is"
+                                 f" {desc_name} and screening dataset only has "
+                                 f"{[_ for _ in screening_dataset.descriptor.__dict__.keys() if _ != '_cache']} "
+                                 f"and can only calculate {screening_dataset.descriptor.get_descriptor_funcs}")
+
+            label = m.label
+            if label in screening_dataset.get_label().keys():
+                y = screening_dataset.get_label(label)[label]
+            else:
+                raise ValueError(f"screening set label and model label do not match: model label is {label} screeing "
+                                 f"labels are {list(screening_dataset.get_label().keys())}")
+
+            y_pred = m.model.pred(X, y)
+            m.__setattr__("pred", y_pred)
+            m.screening_stats[screening_dataset.name] = {key: val(y, y_pred) for key, val in metrics.items()}
 
     def balance(self, method="downsample"):
         raise NotImplemented

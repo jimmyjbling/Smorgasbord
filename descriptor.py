@@ -3,19 +3,18 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from rdkit.DataStructs import ConvertToNumpyArray
 
+# TODO ADD SUPPORT FOR NONE PANDAS OBJECTS
+
+# TODO add logging for when descriptors are None, dont want to remove any rows here just return Nan/Nones
+
 
 class DescriptorCalculator:
     def __init__(self, cache=False):
         self._cache = cache
-        self.morgan = None
-        self.maccs = None
-        self.rdkit = None
-        self.mordred = None
 
-    def morgan(self, df, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
-        if self.morgan is not None and use_cached:
-            if (radius, n_bits, count, use_chirality) in self.morgan.keys():
-                return self.morgan[(radius, n_bits, count, use_chirality)]
+    def calc_morgan(self, df, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
+        if hasattr(self, "morgan") and use_cached:
+            return self.__getattribute__("morgan")
 
         fp = np.zeros(n_bits, dtype=np.int32)
 
@@ -29,14 +28,12 @@ class DescriptorCalculator:
         ConvertToNumpyArray(_fp, fp)
 
         if self._cache:
-            if self.morgan is None:
-                self.morgan = {}
-            self.morgan[(radius, n_bits, count, use_chirality)] = fp
+            self.__setattr__("morgan", ({"radius": radius, "n_bits": n_bits, "count": count, "use_chirality": use_chirality}, fp))
+        else:
+            return fp
 
-        return fp
-
-    def maccs(self, df, use_cached=False):
-        if self.maccs is not None and use_cached:
+    def calc_maccs(self, df, use_cached=False):
+        if hasattr(self, "maccs") and use_cached:
             return self.maccs
 
         fp = np.zeros(167, dtype=np.int32)
@@ -46,12 +43,12 @@ class DescriptorCalculator:
         ConvertToNumpyArray(_fp, fp)
 
         if self._cache:
-            self.maccs = fp
+            self.__setattr__("maccs", ({}, fp))
+        else:
+            return fp
 
-        return fp
-
-    def rdkit_desc(self, df, return_names=False, use_cached=False):
-        if self.rdkit is not None and use_cached:
+    def calc_rdkit(self, df, return_names=False, use_cached=False):
+        if hasattr(self, "rdkit") and use_cached:
             if return_names:
                 return self.rdkit[0], self.rdkit[1]
             else:
@@ -63,22 +60,21 @@ class DescriptorCalculator:
         rdkit_desc = np.array(df["ROMol"].apply(lambda x: [func(x) for func in desc_funcs]).to_list())
 
         if self.cache:
-            self.rdkit = (desc_names, rdkit_desc)
-
-        if return_names:
-            return desc_names, rdkit_desc
+            self.__setattr__("rdkit", ({"rdkit_desc_names": desc_names}, rdkit_desc))
         else:
-            return rdkit_desc
+            if return_names:
+                return desc_names, rdkit_desc
+            else:
+                return rdkit_desc
 
-    def mordred(self, df, mudra=False, use_cached=False):
+    def calc_mordred(self, df, mudra=False, use_cached=False):
         try:
             from mordred import descriptors as mordred_descriptors
             from mordred import Calculator as MordredCalc
         except ImportError:
             raise ImportError("in order to use mordred descriptors you must install the mordred python package")
-        if self.mordred is not None and use_cached:
-            if mudra in self.mordred.keys():
-                return self.mordred[mudra]
+        if hasattr(self, "mordred") and use_cached:
+            return self.mordred
 
         if mudra:
             descriptors = (mordred_descriptors.all[x] for x in range(len(mordred_descriptors.all))
@@ -91,11 +87,39 @@ class DescriptorCalculator:
         mordred_desc = np.array([list(x.values()) for x in df["ROMol"].apply(calc)])
 
         if self._cache:
-            if self.mordred is None:
-                self.mordred = {}
-            self.mordred[mudra] = mordred_desc
+            self.__setattr__("mordred", ({}, mordred_desc))
+        else:
+            return mordred_desc
+    
+    def calc_custom(self, df, name, func, kwargs=None):
+        desc = func(df, **kwargs)
 
-        return mordred_desc
+        if self._cache:
+            self.__setattr__(name, (kwargs, desc))
+        else:
+            return desc
+        
+    def add_descriptor(self, name, desc, options=None):
+        if self._cache:
+            if options is None:
+                options = {}
+            self.__setattr__(name, (options, desc))
+
+    def get_all_descriptors(self):
+        return [(key, val[0], val[1]) for key, val in self.__dict__.items() if key != "_cache"]
+
+    def func_exists(self, name):
+        func_call = "calc_" + str(name)
+        return func_call in dir(self) and callable(self.__getattribute__(func_call))
+
+    def get_descriptor_funcs(self):
+        return [x.replace("calc_", "") for x in dir(self) if callable(self.__getattribute__(x) and "calc_" in x)]
+
+    def iter_descriptors(self):
+        if self._cache:
+            for key, val in self.__dict__:
+                if key != "_cache":
+                    yield key, val[0], val[1]
 
     @property
     def cache(self):
@@ -107,7 +131,6 @@ class DescriptorCalculator:
 
     @cache.deleter
     def cache(self):
-        self.morgan = None
-        self.maccs = None
-        self.rdkit = None
-        self.mordred = None
+        for attr in self.__dict__.keys():
+            if attr != "_cache":
+                self.__setattr__(attr, None)
