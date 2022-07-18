@@ -120,13 +120,13 @@ class QSARDataset:
         self.name = os.path.basename(filepath)
 
         self._label = label
-        self.active_label = label
+        self._labels = {}
+        #self.active_label = label
         self.curation = curation
         self.mixture = mixture
 
         self._failed = []
 
-        self._labels = {}
         self.descriptor = DescriptorCalculator(cache=True)
 
         self._children = {}
@@ -244,7 +244,7 @@ class QSARDataset:
             # TODO someday add support for inchi code and SELFIES to be the default too, not just smiles
             if self._smiles_col is not None:
                 try:
-                    self.dataset["ROMol"] = self.dataset[self.dataset.columns[self._smiles_col]].apply(
+                    self.dataset["ROMol"] = self.dataset[self._smiles_col].apply(
                         Chem.MolFromSmiles
                     )
                 except TypeError:

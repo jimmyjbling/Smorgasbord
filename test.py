@@ -93,3 +93,64 @@ class TestStatistics(unittest.TestCase):
 
         diff = (auc(true, pred) - 0.85714)
         self.assertTrue(diff > 0 and diff < 0.001)
+
+class TestDataset(unittest.TestCase):
+
+    def setUp(self):
+
+        from dataset import QSARDataset
+
+        dataset = QSARDataset(filepath = "test_data/short.csv",
+                              delimiter = ",",
+                              curation = None,
+                              label = "continuous",
+                              label_col = 1,
+                              smiles_col = 0,
+                              cutoff = 4.5)
+
+
+        self.dataset = dataset
+
+    def test_to_binary(self):
+
+        self.dataset.to_binary(cutoff = 4.5)
+
+        print(self.dataset._labels)
+        print(self.dataset.dataset)
+
+class TestModeling(unittest.TestCase):
+
+    def test_working(self):
+
+        from dataset import QSARDataset
+
+        dataset = QSARDataset(filepath = "test_data/short.csv",
+                              delimiter = ",",
+                              curation = None,
+                              label = "continuous",
+                              label_col = 1,
+                              smiles_col = 0,
+                              cutoff = 4.5)
+
+        dataset.to_binary(cutoff = 4.5)
+
+        from model import RF
+        model = RF(n_estimators = 100)
+
+        fp = dataset.descriptor.calc_morgan(dataset.dataset, count = True)
+        print(fp)
+
+
+        model.fit(fp, dataset._labels["binary"])
+        pred = model.predict_probability(fp)
+        print(pred)
+
+        from metrics import get_classification_metrics
+
+
+        pred = [int(x > 0.5) for x in pred]
+        true = [int(x) for x in dataset._labels["binary"]]
+        stats = get_classification_metrics(true, pred)
+        print(stats)
+
+
