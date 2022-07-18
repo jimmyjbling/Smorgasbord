@@ -7,6 +7,7 @@ from descriptor import DescriptorCalculator
 import copy
 from model import QSARModel
 import os
+import pprint
 
 unit_covert_dict = {
     "f": 10**-6,
@@ -132,6 +133,7 @@ class QSARDataset:
         self._children = {}
 
         self._models = {}
+        self._cv={}
 
         self._random_state = np.random.randint(1e8)
         # TODO set a random state on init so that results are repeatable if wanted
@@ -538,7 +540,8 @@ class QSARDataset:
         if desc.shape[0] == self.dataset.shape[0]:
             self.descriptor.add_descriptor(name, desc)
 
-    def model(self, model, name=None, child=None, desc="all", label=None, metrics=None):
+    def model(self, model, name=None, child=None, desc="all", label=None, metrics=None, cv=None, save_models=True,
+              verbose=False):
         if hasattr(model, "random_state"):
             model.__setattr__("random_state", self._random_state)
 
@@ -567,15 +570,64 @@ class QSARDataset:
         else:
             child = [self.get_child_mask(c) for c in child]
 
+        # TODO use itertools product to make this one loop so we can tqdm it
         for child_name, child_mask in child:
             for desc_name, desc_setting, X in desc:
-                m = copy.deepcopy(model)
-                m.fit(X, y)
-                self._models[name] = QSARModel(self, m, name, child_mask, child_name, desc_name, desc_setting, label)
+                if cv is not None:
+                    cv_stats = []
+                    _m = QSARModel(self, model, name, child_mask, child_name, desc_name, desc_setting, label)
+                    for i, train_index, val_index in enumerate(cv.split(X, y)):
+                        X_train, X_val = X[train_index], X[val_index]
+                        y_train, y_val = y[train_index], y[val_index]
+                        m = copy.deepcopy(model)
+                        _name = str(name) + f"_{i}"
+                        m.fit(X_train, y_train)
+                        m = QSARModel(self, m, name, child_mask, child_name, desc_name, desc_setting, label)
+                        if save_models:
+                            self._models[name] = m
+                        self._screen(m, X_val, y_val, metircs)
+                        if verbose:
+                            self._print_screening_header(self, m.name, desc_name, child_name, label, metrics)
+                            pprint.pprint(m.screening_stats[self])
+                        cv_stats.append({key: val(y, y_pred) for key, val in metrics.items()})
 
-        if metrics is not None:
-            pass
-            # TODO add in the ability to screen the training set by calling screen
+                    collected_cv_stats = {}
+                    for d in cv_stats:
+                        for key in d:
+                            if key in collected_cv_stats:
+                                collected_cv_stats[key].append(d[key])
+                            else:
+                                collected_cv_stats[key] = [d[key]]
+                                
+                    # mean
+                    cv_mean_stats = {key: np.average(np.array(val)) for key, val in collected_cv_stats.items()}
+                    # std
+                    cv_std_stats = {key: np.std(np.array(val)) for key, val in collected_cv_stats.items()}
+                    
+                    self._cv[_m] = {"mean": cv_mean_stats, "std": cv_std_stats}
+                else:
+                    m = copy.deepcopy(model)
+                    m.fit(X, y)
+                    m = QSARModel(self, m, name, child_mask, child_name, desc_name, desc_setting, label)
+                    if save_models:
+                        self._models[name] = m
+                    if metrics is not None:
+                        self._screen(m, X, y)
+                        m.screening_stats[screening_dataset] = {key: val(y, y_pred) for key, val in metrics.items()}
+                        if verbose:
+                            self._print_screening_header(self, m.name, desc_name, child_name, label, metrics)
+                            pprint.pprint(m.screening_stats[self])
+
+    def _print_screening_header(self, model_name, screening_df, desc_name, child_name, label, metrics):
+        print(f"Model {model_name}:\n"
+              f"Trained on:\n"
+              f"\t{self.name} with descriptor set {desc_name} with settings f{desc_setting}\n"
+              f"\tchild mask {child_name}\n"
+              f"\tlabel {label}"
+              f"\n"
+              f"Screened against {screening_df.name}\n"
+              f"\n"
+              f"Metrics use {list(metrics.keys())}")
 
     def get_models(self, name=None):
         if name is None:
@@ -587,13 +639,15 @@ class QSARDataset:
     def remove_model(self, name):
         if name in self._models.keys():
             del self._models[name]
-
+            
     def screen(self, screening_dataset, model=None, metrics=None):
         if model is None:
             model = list(self.get_models().values())
         elif not isinstance(model, (tuple, list)):
             if isinstance(model, str):
                 model = [self.get_models(model)[model]]
+            else:
+                model = [model]
         else:
             if isinstance(model[0], QSARModel):
                 model = model
@@ -633,6 +687,7 @@ class QSARDataset:
                 else:
                     X = desc[1]
             else:
+                # TODO add in support to auto detect and calculate native merged descriptors
                 raise ValueError(f"Could not find matching descriptor set in screening dataset. Model descriptor set is"
                                  f" {desc_name} and screening dataset only has "
                                  f"{[_ for _ in screening_dataset.descriptor.__dict__.keys() if _ != '_cache']} "
@@ -642,17 +697,18 @@ class QSARDataset:
             if label in screening_dataset.get_label().keys():
                 y = screening_dataset.get_label(label)[label]
             else:
-                raise ValueError(f"screening set label and model label do not match: model label is {label} screeing "
+                raise ValueError(f"screening set label and model label do not match: model label is {label} screening "
                                  f"labels are {list(screening_dataset.get_label().keys())}")
 
-            y_pred = m.model.pred(X, y)
-            m.__setattr__("pred", y_pred)
-            m.screening_stats[screening_dataset.name] = {key: val(y, y_pred) for key, val in metrics.items()}
+            self._screen(m, X, y, metrics)
+            m.screening_stats[screening_dataset] = {key: val(y, y_pred) for key, val in metrics.items()}
+
+    @staticmethod
+    def _screen(model, X, y):
+        y_pred = model.model.pred(X, y)
+        model.__setattr__("pred", y_pred)
+        # lol I'm 70% confident that python classes hash to their mem loc id, so I can use it as a dict key
 
     def balance(self, method="downsample"):
-        raise NotImplemented
-        # TODO implement function
-
-    def cross_validate(self, cv, model=None):
         raise NotImplemented
         # TODO implement function

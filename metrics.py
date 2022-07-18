@@ -105,6 +105,11 @@ def auc(y_true, y_pred):
     return roc_auc_score(y_true, y_pred)
 
 def get_classification_metrics(y_true, y_pred):
+
+
+def get_classification_metrics(y_true, y_pred):
+    # TODO this should just return a list of metrics functions not a dict
+
     return {
         "ppv": ppv(y_true, y_pred),
         "npv": npv(y_true, y_pred),
@@ -116,16 +121,3 @@ def get_classification_metrics(y_true, y_pred):
         "mcc": mcc(y_true, y_pred),
         "auc": auc(y_true, y_pred),
     }
-
-
-# def get_all(y_true, y_pred):
-#     return {
-#         "ppv": ppv(y_true, y_pred),
-#         "npv": npv(y_true, y_pred),
-#         "sensitivity": sensitivity(y_true, y_pred),
-#         "specificity": specificity(y_true, y_pred),
-#         "accuracy": accuracy(y_true, y_pred),
-#         "balanced_accuracy": balanced_accuracy(y_true, y_pred),
-#         "f1": f1(y_true, y_pred),
-#         "mcc": mcc(y_true, y_pred),
-#     }
