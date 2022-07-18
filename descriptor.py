@@ -92,6 +92,8 @@ class DescriptorCalculator:
             return mordred_desc
     
     def calc_custom(self, df, name, func, kwargs=None):
+        # TODO add in support to save custom descriptor calculations to the calc object so that the dataset object can
+        #  auto detect them
         desc = func(df, **kwargs)
 
         if self._cache:

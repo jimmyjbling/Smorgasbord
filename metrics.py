@@ -53,6 +53,7 @@ def auc(y_true, y_pred):
 
 
 def get_classification_metrics():
+    # TODO this should just return a list of metrics functions not a dict
     return {
         "ppv": ppv,
         "npv": npv,
