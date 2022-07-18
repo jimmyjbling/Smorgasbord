@@ -43,8 +43,7 @@ class TestStatistics(unittest.TestCase):
         from metrics import specificity
         self.assertEqual(specificity(self.all_zero, self.all_zero), 1)
         self.assertTrue(math.isnan(specificity(self.all_one, self.all_one)))
-        self.assertEqual(specificity(self.half_one, self.all_zero),0.5)
-        #self.assertEqual(specificity(self.half_one, self.all_zero = 0.5)
+        self.assertEqual(specificity(self.half_one, self.all_zero),1)
 
     def test_balanced_accuracy(self):
 
