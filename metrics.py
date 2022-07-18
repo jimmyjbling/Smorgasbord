@@ -8,48 +8,102 @@ def confusion_mat(y_true, y_pred):
 
 
 def ppv(y_true, y_pred):
+
+    if y_true == y_pred:
+        if sum(y_true) == len(y_true):
+            return 1
+        else:
+            return 0
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return tp / (tp + fp)
 
 
 def npv(y_true, y_pred):
+
+    if y_true == y_pred:
+        if sum(y_true) == len(y_true):
+            return math.nan
+        else:
+            return 1
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return tn / (tn + fn)
 
 
 def sensitivity(y_true, y_pred):
+
+    if y_true == y_pred:
+        if sum(y_true) == len(y_true):
+            return 1
+        else:
+            return math.nan
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return tp / (tp + fn)
 
 
 def specificity(y_true, y_pred):
+
+    if y_true == y_pred:
+        if sum(y_true) == len(y_true):
+            return math.nan
+        else:
+            return 1
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return tn / (tn + fp)
 
 
 def accuracy(y_true, y_pred):
+
+    if y_true == y_pred:
+        return 1
+
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return (tn + tp) / (tp + tn + fp + fn)
 
 
 def balanced_accuracy(y_true, y_pred):
+
+    if y_true == y_pred:
+        return 1
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return ((tn / (tn + fp)) + (tp / (tp + fn))) / 2
 
 
 def f1(y_true, y_pred):
+
+    if y_true == y_pred:
+        return 1
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return (2 * tp) / ((2 * tp) + fn + fp)
 
 
 def mcc(y_true, y_pred):
+
+    if y_true == y_pred:
+        return math.nan
+
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
-    return ((tn * tp) - (fp * fn)) / math.sqrt((tn + fn) * (fp + tp) * (tn + fp) * (fn + tp))
+
+    import numpy as np
+    with np.errstate(invalid = 'raise'):
+        try:
+            return ((tn * tp) - (fp * fn)) / math.sqrt((tn + fn) * (fp + tp) * (tn + fp) * (fn + tp))
+        except:
+            return math.nan
 
 
 def auc(y_true, y_pred):
-    raise NotImplementedError
-    # TODO implement this
+
+    from sklearn.metrics import roc_auc_score
+
+    return roc_auc_score(y_true, y_pred)
+
 
 
 def get_classification_metrics():
@@ -62,6 +116,7 @@ def get_classification_metrics():
         "balanced_accuracy": balanced_accuracy,
         "f1": f1,
         "mcc": mcc,
+        "auc": auc,
     }
 
 
