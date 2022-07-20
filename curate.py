@@ -35,6 +35,10 @@ dragon_allowed_atoms = set(["H","B","C","N","O","F","Al","Si","P","S","Cl","Cr",
 def curate_mol(mol):
 
     history = Modification_Graph(mol)
+
+    if mol == None:
+        return None, history
+
     #removal of mixtures
     fragmenter_object = molvs.fragment.LargestFragmentChooser(prefer_organic = True)
     newmol = fragmenter_object.choose(mol)
@@ -113,6 +117,9 @@ def curate_mol(mol):
     history.add_modification(text = f"Passed validation", mol = mol)
     history.passed = True
 
+    if Chem.MolToSmiles(mol) != history.initial_smiles:
+        history.structure_modified = True
+
     return mol, history
 
 def check_valid_atoms(mol, allowed_list = dragon_allowed_atoms):
@@ -130,8 +137,15 @@ class Modification_Graph:
         self.head = head
         self.rejected = False
         self.passed = False
+        self.structure_modified = False
+        try:
+            self.initial_smiles = Chem.MolToSmiles(mol)
+            self.add_modification(text = f"Initialized [{Chem.MolToSmiles(mol)}]")
+        except:
+            self.initial_smiles = None
+            self.add_modification(text = "REJECT: Mol is None")
+            self.rejected = True
 
-        self.add_modification(text = f"Initialized [{Chem.MolToSmiles(mol)}]")
 
     def set_head(self, head):
 

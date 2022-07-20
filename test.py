@@ -118,7 +118,6 @@ class TestModeling(unittest.TestCase):
 
         dataset = QSARDataset(filepath = "test_data/short.csv",
                               delimiter = ",",
-                              curation = None,
                               label = "continuous",
                               label_col = 1,
                               smiles_col = 0,
@@ -196,9 +195,9 @@ class TestModeling(unittest.TestCase):
         print(filename)
         dataset = QSARDataset(filepath = filename,
                               delimiter = ",",
-                              curation = None,
                               label_col = 2,
                               smiles_col = "SMILES")
+
 
 
         from model import RF
@@ -324,8 +323,12 @@ class TestCuration(unittest.TestCase):
         dataset.curate()
 
         print(dataset.get_dataset())
-        num_failures = sum(~dataset.dataset["Passed curation"])
 
 
         failed_df = dataset.dataset[~dataset.dataset["Passed curation"]]
+        print(f"Molecules that failed curation: {len(failed_df)}")
         [print(x) for x in failed_df["Curation history"]]
+
+        modified_df = dataset.dataset[dataset.dataset["Curation modified structure"]]
+        print(f"\nMolecules that were modified by curation: {len(modified_df)}")
+        [print(x) for x in modified_df["Curation history"]]

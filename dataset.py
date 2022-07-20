@@ -289,8 +289,7 @@ class QSARDataset:
         if curation is None:
             pass
         else:
-            # TODO add support for curation
-            raise NotImplemented
+            self.curate()
 
         ### The following only needs to occur is the data is currently continuous
         if self._label == "continuous":
@@ -702,6 +701,7 @@ class QSARDataset:
         passed = [x[1].passed for x in results]
         curated_mols = [x[0] for x in results]
         histories = [x[1] for x in results]
+        modified = [x[1].structure_modified for x in results]
 
         failed = [not x[1].passed for x in results]
         new_fail_dict = {x:"Did not pass automatic curation" for x in self.dataset[failed].index}
@@ -709,6 +709,7 @@ class QSARDataset:
 
         self.dataset["Curation history"] = histories
         self.dataset["Passed curation"] = passed
+        self.dataset["Curation modified structure"] = modified
         self.dataset["Curated ROMol"] = curated_mols
             
     def screen(self, screening_dataset, model=None, metrics=None):
