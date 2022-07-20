@@ -264,5 +264,68 @@ class TestModeling(unittest.TestCase):
             stats = get_classification_metrics(true_labels, pred)
             print(stats)
 
+class TestCuration(unittest.TestCase):
+
+    def test_benzene(self):
+
+        from rdkit import Chem
+        from curate import curate_mol
+
+        mol = Chem.MolFromSmiles("c1ccccc1")
+
+        curated_mol, history = curate_mol(mol)
+        print(history)
+
+        self.assertFalse(history.rejected)
+        self.assertTrue(history.passed)
+
+    def test_invalid_atom(self):
+
+        from rdkit import Chem
+        from curate import curate_mol
+
+        mol = Chem.MolFromSmiles("c1ccccc1([U])")
+
+        curated_mol, history = curate_mol(mol)
+        print(history)
+
+        self.assertFalse(history.passed)
+        self.assertTrue(history.rejected)
+
+        self.assertTrue("not in list of allowed atoms" in history)
+
+    def test_mixture(self):
+
+        from rdkit import Chem
+        from curate import curate_mol
+
+        mol = Chem.MolFromSmiles("c1ccccc1.O")
+
+        curated_mol, history = curate_mol(mol)
+        print(history)
+
+        self.assertFalse(history.rejected)
+        self.assertTrue(history.passed)
+
+        self.assertTrue("Detected mixture" in history)
 
 
+
+    def test_dataset_curate(self):
+
+        from dataset import QSARDataset
+
+        dataset = QSARDataset(filepath = "test_data/physprop_Biowin.smi",
+                              delimiter = ",",
+                              curation = None,
+                              label_col = 2,
+                              smiles_col = "SMILES")
+        print(dataset.get_dataset())
+        dataset.curate()
+
+        print(dataset.get_dataset())
+        num_failures = sum(~dataset.dataset["Passed curation"])
+
+
+        failed_df = dataset.dataset[~dataset.dataset["Passed curation"]]
+        [print(x) for x in failed_df["Curation history"]]

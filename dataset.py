@@ -339,7 +339,6 @@ class QSARDataset:
 
     def has_binary_label(self):
         return "binary" in self._labels.keys()
-        
 
     def to_binary(self, cutoff=None, class_names=None, return_cloned_df=False):
         """
@@ -694,6 +693,23 @@ class QSARDataset:
     def remove_model(self, name):
         if name in self._models.keys():
             del self._models[name]
+
+    def curate(self):
+
+        from curate import curate_mol
+        results = [curate_mol(x) for x in self.dataset["ROMol"]]
+
+        passed = [x[1].passed for x in results]
+        curated_mols = [x[0] for x in results]
+        histories = [x[1] for x in results]
+
+        failed = [not x[1].passed for x in results]
+        new_fail_dict = {x:"Did not pass automatic curation" for x in self.dataset[failed].index}
+        self._failed.update(new_fail_dict)
+
+        self.dataset["Curation history"] = histories
+        self.dataset["Passed curation"] = passed
+        self.dataset["Curated ROMol"] = curated_mols
             
     def screen(self, screening_dataset, model=None, metrics=None):
         if model is None:
