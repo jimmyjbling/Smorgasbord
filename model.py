@@ -31,7 +31,6 @@ class RF(QSARModel):
     def __init__(self, n_estimators = 100, **kwargs):
 
         from sklearn.ensemble import RandomForestClassifier
-        from sklearn.ensemble import RandomForestRegressor
 
         self.model = RandomForestClassifier(n_estimators = n_estimators, **kwargs)
 
@@ -41,7 +40,11 @@ class RF(QSARModel):
 
     def predict_probability(self, x):
 
-        active_probability = (self.model.predict_proba(x)[:, 1])
+        try:
+            active_probability = (self.model.predict_proba(x)[:, 1])
+        except:
+            raise Exception("Model is predicting all ones, maybe a meaningless cutoff?")
+
         return active_probability
 
 class XYDataset(Dataset):

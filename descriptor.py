@@ -18,6 +18,7 @@ class DescriptorCalculator:
 
         fp = np.zeros(n_bits, dtype=np.int32)
 
+        #COME BACK AND VECTORIZE
         if count:
             _fp = [AllChem.GetHashedMorganFingerprint(x,
                                     radius=radius, 

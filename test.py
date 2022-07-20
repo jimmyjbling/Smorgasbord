@@ -1,5 +1,6 @@
 import unittest
 import math
+import glob
 
 class TestBasic(unittest.TestCase):
 
@@ -151,5 +152,125 @@ class TestModeling(unittest.TestCase):
         true = [int(x) for x in dataset._labels["binary"]]
         stats = get_classification_metrics(true, pred)
         print(stats)
+
+
+    def test_logp(self):
+
+        from dataset import QSARDataset
+
+        dataset = QSARDataset(filepath = "test_data/logp.tsv",
+                              delimiter = "\t",
+                              curation = None,
+                              label = "continuous",
+                              label_col = "Kowwin",
+                              smiles_col = "Canonical_QSARr",
+                              cutoff = 4.5)
+
+        dataset.to_binary(cutoff = 1)
+
+
+
+        from model import RF
+        model = RF(n_estimators = 100)
+
+
+        clean_dataset = dataset.get_dataset()
+        clean_labels = dataset.get_labels("binary")
+        fp = dataset.descriptor.calc_morgan(clean_dataset, count = True)
+        
+        import numpy as np
+        true_labels = clean_labels
+
+        model.fit(fp, true_labels)
+        pred = model.predict_probability(fp)
+
+        from metrics import get_classification_metrics
+
+        from metrics import auc
+        print("AUC: ", auc(true_labels, pred))
+        pred = np.array([int(x > 0.5) for x in pred], dtype = int)
+
+
+        import metrics
+        stats = get_classification_metrics(true_labels, pred)
+        print(stats)
+
+
+    def test_biowin(self):
+
+        from dataset import QSARDataset
+
+        filename = "test_data/physprop_Biowin.smi"
+        print(filename)
+        dataset = QSARDataset(filepath = filename,
+                              delimiter = ",",
+                              curation = None,
+                              label_col = 2,
+                              smiles_col = "SMILES")
+
+
+        from model import RF
+        model = RF(n_estimators = 100)
+
+
+        clean_dataset = dataset.get_dataset()
+
+        fp = dataset.descriptor.calc_morgan(clean_dataset, count = True)
+
+        import numpy as np
+        true_labels = dataset.get_labels("binary")
+
+        model.fit(fp, true_labels)
+        pred = model.predict_probability(fp)
+
+        from metrics import get_classification_metrics
+
+        from metrics import auc
+        print("AUC: ", auc(true_labels, pred))
+        pred = [int(x > 0.5) for x in pred]
+        stats = get_classification_metrics(true_labels, pred)
+        print(stats)
+
+
+
+    def test_physprop(self):
+
+        filenames = glob.glob("test_data/*.smi")
+
+        from dataset import QSARDataset
+
+        for filename in filenames:
+            print(filename)
+            dataset = QSARDataset(filepath = filename,
+                                  delimiter = ",",
+                                  curation = None,
+                                  label_col = 2,
+                                  smiles_col = "SMILES")
+
+            if not dataset.has_binary_label():
+                dataset.to_binary()
+
+            from model import RF
+            model = RF(n_estimators = 100)
+
+
+            clean_dataset = dataset.get_dataset()
+
+            fp = dataset.descriptor.calc_morgan(clean_dataset, count = True)
+
+            import numpy as np
+            true_labels = list(np.array(dataset.get_labels("binary"), dtype = int))
+
+            model.fit(fp, true_labels)
+            pred = model.predict_probability(fp)
+
+            from metrics import get_classification_metrics
+
+            from metrics import auc
+            print("AUC: ", auc(true_labels, pred))
+            pred = [int(x > 0.5) for x in pred]
+            stats = get_classification_metrics(true_labels, pred)
+            print(stats)
+
 
 

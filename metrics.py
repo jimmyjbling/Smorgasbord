@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 from sklearn.metrics import confusion_matrix
 
@@ -9,7 +10,8 @@ def confusion_mat(y_true, y_pred):
 
 def ppv(y_true, y_pred):
 
-    if y_true == y_pred:
+
+    if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return 1
         else:
@@ -21,7 +23,7 @@ def ppv(y_true, y_pred):
 
 def npv(y_true, y_pred):
 
-    if y_true == y_pred:
+    if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return math.nan
         else:
@@ -33,7 +35,7 @@ def npv(y_true, y_pred):
 
 def sensitivity(y_true, y_pred):
 
-    if y_true == y_pred:
+    if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return 1
         else:
@@ -45,7 +47,7 @@ def sensitivity(y_true, y_pred):
 
 def specificity(y_true, y_pred):
 
-    if y_true == y_pred:
+    if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return math.nan
         else:
@@ -57,7 +59,7 @@ def specificity(y_true, y_pred):
 
 def accuracy(y_true, y_pred):
 
-    if y_true == y_pred:
+    if np.array_equal(y_true, y_pred):
         return 1
 
 
@@ -67,7 +69,7 @@ def accuracy(y_true, y_pred):
 
 def balanced_accuracy(y_true, y_pred):
 
-    if y_true == y_pred:
+    if np.array_equal(y_true, y_pred):
         return 1
 
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
@@ -76,7 +78,7 @@ def balanced_accuracy(y_true, y_pred):
 
 def f1(y_true, y_pred):
 
-    if y_true == y_pred:
+    if np.array_equal(y_true, y_pred):
         return 1
 
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
@@ -85,12 +87,11 @@ def f1(y_true, y_pred):
 
 def mcc(y_true, y_pred):
 
-    if y_true == y_pred:
+    if np.array_equal(y_true, y_pred):
         return math.nan
 
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
 
-    import numpy as np
     with np.errstate(invalid = 'raise'):
         try:
             return ((tn * tp) - (fp * fn)) / math.sqrt((tn + fn) * (fp + tp) * (tn + fp) * (fn + tp))
@@ -103,9 +104,6 @@ def auc(y_true, y_pred):
     from sklearn.metrics import roc_auc_score
 
     return roc_auc_score(y_true, y_pred)
-
-def get_classification_metrics(y_true, y_pred):
-
 
 def get_classification_metrics(y_true, y_pred):
     # TODO this should just return a list of metrics functions not a dict
