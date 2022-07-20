@@ -118,7 +118,6 @@ class TestModeling(unittest.TestCase):
 
         dataset = QSARDataset(filepath = "test_data/short.csv",
                               delimiter = ",",
-                              curation = None,
                               label = "continuous",
                               label_col = 1,
                               smiles_col = 0,
@@ -196,9 +195,9 @@ class TestModeling(unittest.TestCase):
         print(filename)
         dataset = QSARDataset(filepath = filename,
                               delimiter = ",",
-                              curation = None,
                               label_col = 2,
                               smiles_col = "SMILES")
+
 
 
         from model import RF
@@ -264,5 +263,72 @@ class TestModeling(unittest.TestCase):
             stats = get_classification_metrics(true_labels, pred)
             print(stats)
 
+class TestCuration(unittest.TestCase):
+
+    def test_benzene(self):
+
+        from rdkit import Chem
+        from curate import curate_mol
+
+        mol = Chem.MolFromSmiles("c1ccccc1")
+
+        curated_mol, history = curate_mol(mol)
+        print(history)
+
+        self.assertFalse(history.rejected)
+        self.assertTrue(history.passed)
+
+    def test_invalid_atom(self):
+
+        from rdkit import Chem
+        from curate import curate_mol
+
+        mol = Chem.MolFromSmiles("c1ccccc1([U])")
+
+        curated_mol, history = curate_mol(mol)
+        print(history)
+
+        self.assertFalse(history.passed)
+        self.assertTrue(history.rejected)
+
+        self.assertTrue("not in list of allowed atoms" in history)
+
+    def test_mixture(self):
+
+        from rdkit import Chem
+        from curate import curate_mol
+
+        mol = Chem.MolFromSmiles("c1ccccc1.O")
+
+        curated_mol, history = curate_mol(mol)
+        print(history)
+
+        self.assertFalse(history.rejected)
+        self.assertTrue(history.passed)
+
+        self.assertTrue("Detected mixture" in history)
 
 
+
+    def test_dataset_curate(self):
+
+        from dataset import QSARDataset
+
+        dataset = QSARDataset(filepath = "test_data/physprop_Biowin.smi",
+                              delimiter = ",",
+                              curation = None,
+                              label_col = 2,
+                              smiles_col = "SMILES")
+        print(dataset.get_dataset())
+        dataset.curate()
+
+        print(dataset.get_dataset())
+
+
+        failed_df = dataset.dataset[~dataset.dataset["Passed curation"]]
+        print(f"Molecules that failed curation: {len(failed_df)}")
+        [print(x) for x in failed_df["Curation history"]]
+
+        modified_df = dataset.dataset[dataset.dataset["Curation modified structure"]]
+        print(f"\nMolecules that were modified by curation: {len(modified_df)}")
+        [print(x) for x in modified_df["Curation history"]]
