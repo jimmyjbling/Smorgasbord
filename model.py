@@ -17,6 +17,35 @@ class QSARModel:
         self.label = label
         self.screening_stats = {}
 
+    def fit():
+        raise NotImplementedError
+
+    def predict():
+        raise NotImplementedError
+
+    def predict_probability():
+        raise NotImplementedError
+
+class RF(QSARModel):
+
+    def __init__(self, n_estimators = 100, **kwargs):
+
+        from sklearn.ensemble import RandomForestClassifier
+
+        self.model = RandomForestClassifier(n_estimators = n_estimators, **kwargs)
+
+    def fit(self, x, y):
+
+        self.model.fit(x, y)
+
+    def predict_probability(self, x):
+
+        try:
+            active_probability = (self.model.predict_proba(x)[:, 1])
+        except:
+            raise Exception("Model is predicting all ones, maybe a meaningless cutoff?")
+
+        return active_probability
 
 class XYDataset(Dataset):
     def __init__(self, X, y):

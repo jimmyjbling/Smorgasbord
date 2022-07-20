@@ -18,19 +18,28 @@ class DescriptorCalculator:
 
         fp = np.zeros(n_bits, dtype=np.int32)
 
+        #COME BACK AND VECTORIZE
         if count:
-            _fp = df["ROMol"].apply(AllChem.GetHashedMorganFingerprint,
-                                    kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
+            _fp = [AllChem.GetHashedMorganFingerprint(x,
+                                    radius=radius, 
+                                    nBits = n_bits,
+                                    useChirality = use_chirality) for x in df["ROMol"]]
         else:
             _fp = df["ROMol"].apply(AllChem.GetMorganFingerprintAsBitVect,
                                     kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
 
-        ConvertToNumpyArray(_fp, fp)
+        fp = []
+        for x in _fp:
+            dest = np.zeros(len(df), dtype=np.int32)
+            ConvertToNumpyArray(x, dest)
+            fp.append(dest)
+
+        fp = np.vstack(fp)
 
         if self._cache:
             self.__setattr__("morgan", ({"radius": radius, "n_bits": n_bits, "count": count, "use_chirality": use_chirality}, fp))
-        else:
-            return fp
+
+        return fp
 
     def calc_maccs(self, df, use_cached=False):
         if hasattr(self, "maccs") and use_cached:

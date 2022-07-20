@@ -121,13 +121,13 @@ class QSARDataset:
         self.name = os.path.basename(filepath)
 
         self._label = label
-        self.active_label = label
+        self._labels = {}
+        #self.active_label = label
         self.curation = curation
         self.mixture = mixture
 
-        self._failed = []
+        self._failed = {}
 
-        self._labels = {}
         self.descriptor = DescriptorCalculator(cache=True)
 
         self._children = {}
@@ -211,13 +211,20 @@ class QSARDataset:
 
         # TODO add support for multi label datasets
 
+
         if self._label == "auto":
             _labels = self.dataset[self._label_col].to_list()
             try:
                 _labels = list(map(float, _labels))
 
-                if all([x.is_integer() for x in _labels]):
-                    guess_initial_label_class = "class_int"
+                _valid_labels = [x for x in _labels if not np.isnan(x)]
+
+
+                if all([x.is_integer() for x in _valid_labels]):
+                    if len(set(_valid_labels)) == 2:
+                        guess_initial_label_class = "binary"
+                    else:
+                        guess_initial_label_class = "class_int"
                 else:
                     guess_initial_label_class = "continuous"
             except ValueError:
@@ -233,7 +240,14 @@ class QSARDataset:
                     guess_initial_label_class = "binary"
 
             self._label = guess_initial_label_class
-            self.active_label = guess_initial_label_class
+            #self.active_label = guess_initial_label_class
+
+
+        #check for initial missing labels
+
+        missing_labels = np.isnan(self.dataset[self._label_col].astype(float))
+        new_fail_dict = {x:"Missing initial label" for x in self.dataset[missing_labels].index}
+        self._failed.update(new_fail_dict)
 
         # save the initial labels to the dictionary
         if self._label == "continuous":
@@ -246,7 +260,7 @@ class QSARDataset:
             # TODO someday add support for inchi code and SELFIES to be the default too, not just smiles
             if self._smiles_col is not None:
                 try:
-                    self.dataset["ROMol"] = self.dataset[self.dataset.columns[self._smiles_col]].apply(
+                    self.dataset["ROMol"] = self.dataset[self._smiles_col].apply(
                         Chem.MolFromSmiles
                     )
                 except TypeError:
@@ -262,8 +276,15 @@ class QSARDataset:
                 )
 
         if self.dataset["ROMol"].isna().sum() > 0:
-            self.failed = self.dataset[self.dataset['ROMol'].isna()]
-            self.dataset.dropna(subset=['ROMol', ''])
+            failed_indices = self.dataset['ROMol'].isna()
+            failed = self.dataset[self.dataset['ROMol'].isna()]
+
+
+            new_fail_dict = {x:"Failed to read into RDKit" for x in self.dataset[failed_indices].index}
+
+            self._failed.update(new_fail_dict)
+            #what is the empty string for? #self.dataset.dropna(subset=['ROMol', ''])
+            #self.dataset = self.dataset.dropna(subset=['ROMol'])
 
         if curation is None:
             pass
@@ -285,6 +306,40 @@ class QSARDataset:
                     self.to_binary(cutoff)
                 if desired_label == "multiclass":
                     self.to_multiclass(cutoff)
+
+    def get_dataset(self):
+
+        """
+        takes the original dataset and drops failed indices (failed rdkit mols, missing labels, etc)
+        josh will always use this to access the dataframe and leave the original dataframe alone
+        """
+
+
+        failed_indices = self._failed.keys()
+        return self.dataset.drop(index = failed_indices)
+
+    def get_labels(self, kind):
+ 
+        """
+        takes the private _labels and drops failed indices (failed rdkit mols, missing labels, etc)
+        josh will always use this to access the labels and leave the original labels alone
+        """
+
+       
+        failed_indices = self._failed.keys()
+
+        if kind == "binary":
+            dtype = int
+        elif king == "continuous":
+            dtype = float
+        else:
+            raise Exception("Supplied kind ({kind}) not implemented in get_labels()")
+
+        return np.array(self._labels[kind].drop(index = failed_indices), dtype = dtype)
+
+    def has_binary_label(self):
+        return "binary" in self._labels.keys()
+        
 
     def to_binary(self, cutoff=None, class_names=None, return_cloned_df=False):
         """
@@ -318,7 +373,7 @@ class QSARDataset:
         """
         cutoff = self._check_cutoff(cutoff)
         if cutoff is None:
-            cutoff = [np.median(self._labels["continuous"])]
+            cutoff = [np.median(self._labels["continuous"][self._labels["continuous"].notna()])]
         elif len(cutoff) > 1:
             cutoff = [cutoff[0]]
         self._binary_cutoff = cutoff
@@ -463,7 +518,7 @@ class QSARDataset:
     @active_label.setter
     def active_label(self, value):
         if value not in self._labels.keys():
-            raise ValueError("label does not exist")
+            raise ValueError(f"Error setting active label: {value} not in {self._labels.keys()}")
         else:
             self.active_label = value
 
