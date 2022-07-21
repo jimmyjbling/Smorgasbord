@@ -47,7 +47,7 @@ def nearest_neighbors(reference, query, k=1, self_query=False, return_distance=F
         return i
 
 
-def modi(data, labels):
+def modi(data, labels, return_class_contribution=False):
     # get all the classes present in the dataset
     classes = np.unique(labels)
     k = classes.shape[0]
@@ -58,14 +58,19 @@ def modi(data, labels):
 
     # calculate the modi
     modi_value = 0
+    class_contrib = []
     for c in classes:
         c_arr = np.where(labels == c)[0]
         c_labels = labels[c_arr]
-        c_nn_labels = nn_labels[c_arr]
+        c_nn_labels = nn_labels[c_arr].flatten()
 
         modi_value += np.sum(c_labels == c_nn_labels) / c_arr.shape[0]
+        class_contrib.append(np.sum(c_labels == c_nn_labels) / c_arr.shape[0])
 
-    return (k ** -1) * modi_value
+    if not return_class_contribution:
+        return (k ** -1) * modi_value
+    else:
+        return (k ** -1) * modi_value, class_contrib
 
 
 def generate_citations(json_data):
