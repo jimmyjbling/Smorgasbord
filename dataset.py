@@ -4,6 +4,7 @@ from rdkit import Chem
 from rdkit.Chem.PandasTools import LoadSDF
 from collections import Counter
 from descriptor import DescriptorCalculator
+import hashlib
 import copy
 from model import QSARModel
 import os
@@ -34,7 +35,8 @@ unit_covert_dict = {
 
 class QSARDataset:
     def __init__(self, filepath, delimiter=None, curation="default", label_col=-1, smiles_col=1, label="auto",
-                 desired_label=None, cutoff=None,  unit_col=None, mixture=False, mixture_columns=None):
+                 desired_label=None, cutoff=None,  unit_col=None, mixture=False, mixture_columns=None,
+                 file_hash = None):
         """
         base dataset object that will handle curation and process of molecular datasets. dataset objects can handle
         the following actions to process your dataset:
@@ -114,8 +116,36 @@ class QSARDataset:
                 units must be in the metric system
                 ignored for non-continuous data
                 if left as None assumes all continuous labels are the same unit
+            file_hash: (str) | optional: default = None
+                sha256 hash of input file contents
+                if provided, will raise Exception on __init__() if file contents have changed
+
         """
 
+        self.stored_args = {}
+        self.stored_args["filepath"] = filepath, 
+        self.stored_args["delimiter"] = delimiter, 
+        self.stored_args["curation"] = curation, 
+        self.stored_args["label_col"] =  label_col, 
+        self.stored_args["smiles_col"] = smiles_col, 
+        self.stored_args["label"] = label,
+        self.stored_args["desired_label"] = desired_label, 
+        self.stored_args["cutoff"] = cutoff,  
+        self.stored_args["unit_col"] = unit_col, 
+        self.stored_args["mixture"] = mixture, 
+        self.stored_args["mixture_columns"] = mixture_columns
+
+        #why is this necessary? everything ends up in a tuple?
+        tmp_dict = {}
+        for key, val in self.stored_args.items():
+            try:
+                tmp_dict[key] = val[0]
+            except:
+                tmp_dict[key] = val
+
+        self.stored_args = tmp_dict
+
+        
         # TODO add support for mixtures splits
 
         self.name = os.path.basename(filepath)
@@ -131,6 +161,16 @@ class QSARDataset:
         self.descriptor = DescriptorCalculator(cache=True)
 
         self._children = {}
+
+        f = open(filepath, 'rb')
+        s = f.read()
+        f.close()
+        hashval = hashlib.sha256(s).hexdigest()
+        self.file_hash = hashval
+
+        if file_hash:
+            if file_hash != self.file_hash:
+                raise Exception(f"File contents (sha256 hash) for {filepath} have changed!!!")
 
         self._models = {}
         self._cv={}
@@ -329,7 +369,7 @@ class QSARDataset:
 
         if kind == "binary":
             dtype = int
-        elif king == "continuous":
+        elif kind == "continuous":
             dtype = float
         else:
             raise Exception("Supplied kind ({kind}) not implemented in get_labels()")
@@ -509,6 +549,22 @@ class QSARDataset:
                     return index
         return None
 
+    def to_dict(self):
+
+        d = {}
+
+        d["Arguments"] = self.stored_args
+        d["Name"] = self.name
+        d["Filepath"] = self.filepath
+        #d["Curation"] = self.curate
+        d["Label Column"] = self._label_col
+        d["SMILES Column"] = self._smiles_col
+        d["Label"] = self._label
+        d["File Hash"] = self.file_hash
+
+        return d
+
+
     @property
     def active_label(self):
         return self.active_label
@@ -595,6 +651,8 @@ class QSARDataset:
 
     def model(self, model, name=None, child=None, desc="all", label=None, metrics=None, cv=None, save_models=True,
               verbose=False):
+        #cv should be scikit splitter (like kfold)
+
         if hasattr(model, "random_state"):
             model.__setattr__("random_state", self._random_state)
 

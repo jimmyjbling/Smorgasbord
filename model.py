@@ -6,6 +6,7 @@ from torch import nn
 # TODO instead of a wrapper class could I just set attributes of the passed model?
 
 class QSARModel:
+    '''
     def __init__(self, parent, model, name, child, child_name, desc_name, desc_settings, label):
         self.model = model
         self.name = name
@@ -16,6 +17,7 @@ class QSARModel:
         self.child = child
         self.label = label
         self.screening_stats = {}
+    '''
 
     def fit():
         raise NotImplementedError
@@ -26,9 +28,20 @@ class QSARModel:
     def predict_probability():
         raise NotImplementedError
 
+    def to_dict(self):
+        raise NotImplementedError
+
 class RF(QSARModel):
 
     def __init__(self, n_estimators = 100, **kwargs):
+
+        self.stored_args = {}
+        self.stored_args["n_estimators"] = n_estimators
+        for key, value in kwargs.items():
+            self.stored_args[key] = value
+
+        self.name = "RF"
+
 
         from sklearn.ensemble import RandomForestClassifier
 
@@ -46,6 +59,12 @@ class RF(QSARModel):
             raise Exception("Model is predicting all ones, maybe a meaningless cutoff?")
 
         return active_probability
+
+    def to_dict(self):
+        d = {}
+        d["Name"] = self.name
+        d["Arguments"] = self.stored_args
+        return d
 
 class XYDataset(Dataset):
     def __init__(self, X, y):

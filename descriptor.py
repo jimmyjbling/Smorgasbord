@@ -7,6 +7,56 @@ from rdkit.DataStructs import ConvertToNumpyArray
 
 # TODO add logging for when descriptors are None, dont want to remove any rows here just return Nan/Nones
 
+class MorganDescriptor:
+
+    def __init__(self, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
+        self.radius = radius
+        self.n_bits = n_bits
+        self.count = False
+        self.use_chirality = use_chirality
+        self.use_cached = use_cached
+
+        self.name = "Morgan"
+
+        self.stored_args = {}
+        self.stored_args["radius"] = radius
+        self.stored_args["n_bits"] = n_bits
+        self.stored_args["count"] = count
+        self.stored_args["use_chirality"] = use_chirality
+        self.stored_args["use_cached"] = use_cached
+
+    def to_dict(self):
+
+        d = {}
+        d["Name"] = "MorganDecriptor"
+        d.update(self.stored_args)
+        return d
+
+    def get_descriptors(self, romols):
+
+        #COME BACK AND VECTORIZE
+        if not self.count:
+            _fp = [AllChem.GetHashedMorganFingerprint(x,
+                                    radius=self.radius, 
+                                    nBits = self.n_bits,
+                                    useChirality = self.use_chirality) for x in romols]
+        else:
+            raise NotImplementedError
+            _fp = df["ROMol"].apply(AllChem.GetMorganFingerprintAsBitVect,
+                                    kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
+
+        fp = []
+        for x in _fp:
+            dest = np.zeros(len(romols), dtype=np.int32)
+            ConvertToNumpyArray(x, dest)
+            fp.append(dest)
+
+        fp = np.vstack(fp)
+
+        return fp
+
+
+
 
 class DescriptorCalculator:
     def __init__(self, cache=False):
