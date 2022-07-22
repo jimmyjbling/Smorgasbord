@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import spatial as sp
+from tqdm import tqdm
 
 
 def nearest_neighbors(reference, query, k=1, self_query=False, return_distance=False):
@@ -183,3 +184,76 @@ def normalize(x, return_normalize_function=False):
         return res, lambda a: a / col_max
     else:
         return res
+
+
+def get_count_finger(mol, nbits=2048, radius=3, chiral=False):
+    """
+    Get count morgan fingerprint from RDKit Mol object
+    """
+    from rdkit.Chem import AllChem
+    from rdkit.DataStructs import ConvertToNumpyArray
+
+    fp = np.ones(nbits, dtype=int)
+    ConvertToNumpyArray(AllChem.GetHashedMorganFingerprint(mol, nBits=nbits, radius=radius, useChirality=chiral), fp)
+    return fp
+
+
+def chemical_diversity(mols, nbits=2048, radius=3, chiral=False):
+    """
+    Calculate a measure of how diverse a given set of molecules is
+
+    Uses morgan count fingerprints to convert chemicals to a coordinates and returns the mean and std of the pairwise
+    distances of all combinations. This can be compared to the values for chembl for the same morgan settings to
+    get an idea of how diverse the chemicals are. For reference with 2048 bit the max distance is srqt(2048) or 45.2548
+
+    Parameters
+    ----------
+        mols: pandas series of rdkit Mol objects
+            The molecules you want to calculate diversity for
+        nbits: int, optional default=2048
+            The number of bits for the fingerprint
+        radius: int, optional default=3
+            The radius of the fingerprint
+        chiral: bool, optional default=False
+            Use chiral fingerprints
+    Returns
+    -------
+        diversity_score: tuple
+            returns a tuple of (mean_pairwise, std_pairwise)
+    """
+    fps = np.vstack(mols[mols.columns[0]].apply(get_count_finger, nbits=nbits, radius=radius, chiral=chiral).to_numpy())
+    dist = sp.distance.pdist(fps)
+
+    return np.mean(dist), np.std(dist)
+
+
+def umap(X, labels, save_loc=None, **kwargs):
+    """
+    Calculate and plots the UMap for a given set of chemical descriptors
+
+    Parameters
+    ----------
+        X: array-like
+            array of chemical descriptors
+        labels: array-like
+            array of shape [n, 1] of classification labels for umap
+        save_loc: str, optional
+            if valid file location is passed will save umap plot to file rather than showing plot
+        kwargs: optional
+            kwargs to be passed to the umap function
+
+    Returns
+    -------
+    None
+
+    """
+    import umap as _umap
+    import matplotlib.pyplot as plt
+
+    mapper = _umap.UMAP(**kwargs).fit(X)
+    _umap.plot.points(mapper, labels=labels)
+
+    if save_loc is not None:
+        plt.savefig(save_loc)
+    else:
+        plt.show()
