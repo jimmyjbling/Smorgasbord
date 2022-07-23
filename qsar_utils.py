@@ -198,7 +198,7 @@ def normalize(x, return_normalize_function=False):
         return res
 
 
-def get_count_finger(mol, nbits=2048, radius=3, chiral=False):
+def get_morgan_finger(mol, nbits=2048, radius=3, chiral=False, count=False, bit_info=False):
     """
     Get count morgan fingerprint from RDKit Mol object
     """
@@ -206,8 +206,18 @@ def get_count_finger(mol, nbits=2048, radius=3, chiral=False):
     from rdkit.DataStructs import ConvertToNumpyArray
 
     fp = np.ones(nbits, dtype=int)
-    ConvertToNumpyArray(AllChem.GetHashedMorganFingerprint(mol, nBits=nbits, radius=radius, useChirality=chiral), fp)
-    return fp
+    bi = {}
+    if count:
+        ConvertToNumpyArray(AllChem.GetHashedMorganFingerprint(mol, nBits=nbits, radius=radius,
+                                                               useChirality=chiral, bitInfo=bi), fp)
+    else:
+        ConvertToNumpyArray(AllChem.GetMorganFingerprintAsBitVect(mol, nBits=nbits, radius=radius,
+                                                                  useChirality=chiral, bitInfo=bi), fp)
+
+    if bit_info:
+        return fp, bi
+    else:
+        return fp
 
 
 def chemical_diversity(mols, nbits=2048, radius=3, chiral=False):
@@ -233,7 +243,8 @@ def chemical_diversity(mols, nbits=2048, radius=3, chiral=False):
         diversity_score: tuple
             returns a tuple of (mean_pairwise, std_pairwise)
     """
-    fps = np.vstack(mols[mols.columns[0]].apply(get_count_finger, nbits=nbits, radius=radius, chiral=chiral).to_numpy())
+    fps = np.vstack(mols[mols.columns[0]].apply(get_morgan_finger, nbits=nbits, radius=radius,
+                                                chiral=chiral, count=True).to_numpy())
     dist = sp.distance.pdist(fps)
 
     return np.mean(dist), np.std(dist)
@@ -302,8 +313,7 @@ def get_finger_bit_substructure(mol, bit, nbits=2048, radius=3, chiral=False):
     from rdkit.Chem import AllChem
     from rdkit import Chem
 
-    bi = {}
-    _fp = AllChem.GetMorganFingerprintAsBitVect(mol, nBits=nbits, radius=radius, useChirality=chiral, bitInfo=bi)
+    _fp, bi = AllChem.GetMorganFingerprintAsBitVect(mol, nBits=nbits, radius=radius, useChirality=chiral, bitInfo=True)
 
     if bit not in bi.keys():
         return None
