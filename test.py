@@ -9,7 +9,6 @@ class TestBasic(unittest.TestCase):
     def test_hello(self):
         print("Hello")
 
-
 class TestStatistics(unittest.TestCase):
 
     def setUp(self):
@@ -492,6 +491,62 @@ class TestPlate(unittest.TestCase):
 
 
         this_plate.run()
+
+    def test_herg(self):
+
+        filename = "dummy_plate_out.yaml"
+
+
+        from plate import Plate
+        from dataset import QSARDataset
+
+        dataset1 = QSARDataset(filepath = "test_data/herg.sdf",
+                              delimiter = "\t",
+                              curation = None,
+                              label = "continuous",
+                              label_col = "pIC50",
+                              cutoff = 5)
+
+        '''
+        exit()
+
+
+        dataset2 = QSARDataset(filepath = "test_data/short.csv",
+                              delimiter = ",",
+                              curation = None,
+                              label = "continuous",
+                              label_col = 1,
+                              smiles_col = 0,
+                              cutoff = 4.5)
+
+        filename = "test_data/physprop_Biowin.smi"
+        dataset3 = QSARDataset(filepath = filename,
+                              delimiter = ",",
+                              label = "binary",
+                              label_col = 2,
+                              smiles_col = "SMILES")
+
+
+
+
+        '''
+        from model import RF
+
+        model1 = RF()
+
+        from descriptor import MorganDescriptor
+        descriptor1 = MorganDescriptor()
+
+        this_plate = Plate(datasets= [dataset1],
+                            models = [model1],
+                            descriptor_functions = [descriptor1],
+                            sampling_methods = ["None", "Oversampling"],
+                            procedures = ["5-Fold CV", "Train"])
+
+
+
+        this_plate.run()
+
 
 
 

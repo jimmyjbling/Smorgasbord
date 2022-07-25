@@ -285,9 +285,28 @@ class QSARDataset:
 
         #check for initial missing labels
 
-        missing_labels = np.isnan(self.dataset[self._label_col].astype(float))
-        new_fail_dict = {x:"Missing initial label" for x in self.dataset[missing_labels].index}
-        self._failed.update(new_fail_dict)
+        #TODO vectorize
+        for i, label in enumerate(self.dataset[self._label_col]):
+            try:
+                x = float(label)
+            except:
+                self._failed[i] = "Missing initial label"
+                self.dataset[self._label_col][i] = np.nan
+
+            #TODO: delete this when confident it's not needed
+            '''
+            print(f"|{label}|")
+            if label == "":
+                raise Exception
+            elif np.isnan(label):
+            #also don't overwrite here, should keep multiple fail reasons
+                self._failed[i] = "Missing initial label"
+
+            #missing_labels =self.dataset[self._label_col].astype(float))
+            #missing_labels = np.isnan(self.dataset[self._label_col].astype(float))
+            #new_fail_dict = {x:"Missing initial label" for x in self.dataset[missing_labels].index}
+            #self._failed.update(new_fail_dict)
+            '''
 
         # save the initial labels to the dictionary
         if self._label == "continuous":

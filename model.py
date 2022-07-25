@@ -31,6 +31,12 @@ class QSARModel:
     def to_dict(self):
         raise NotImplementedError
 
+    def to_string(self):
+        #should return a friendly (lowercase with underscores) description of model name + parameters
+        #e.g. random_forest_100 for rf with 100 trees
+
+        raise NotImplementedError
+
 class RF(QSARModel):
 
     def __init__(self, n_estimators = 100, **kwargs):
@@ -40,7 +46,7 @@ class RF(QSARModel):
         for key, value in kwargs.items():
             self.stored_args[key] = value
 
-        self.name = "RF"
+        self.name = "Random Forest"
 
 
         from sklearn.ensemble import RandomForestClassifier
@@ -56,7 +62,7 @@ class RF(QSARModel):
         try:
             active_probability = (self.model.predict_proba(x)[:, 1])
         except:
-            raise Exception("Model is predicting all ones, maybe a meaningless cutoff?")
+            active_probability = (1 - self.model.predict_proba(x)[:, 0])
 
         return active_probability
 
@@ -66,6 +72,9 @@ class RF(QSARModel):
         d["Arguments"] = self.stored_args
         return d
 
+    def get_string(self):
+
+        return "random_forest_" + str(self.stored_args["n_estimators"])
 class XYDataset(Dataset):
     def __init__(self, X, y):
         self.y = y

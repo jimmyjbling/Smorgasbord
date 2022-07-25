@@ -7,7 +7,18 @@ from rdkit.DataStructs import ConvertToNumpyArray
 
 # TODO add logging for when descriptors are None, dont want to remove any rows here just return Nan/Nones
 
-class MorganDescriptor:
+class Descriptor:
+
+    def to_dict(self):
+        raise NotImplementedError
+
+    def get_descriptors(self, romols):
+        raise NotImplementedError
+
+    def to_string(self):
+        raise NotImplementedError
+
+class MorganDescriptor(Descriptor):
 
     def __init__(self, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
         self.radius = radius
@@ -54,6 +65,10 @@ class MorganDescriptor:
         fp = np.vstack(fp)
 
         return fp
+
+    def get_string(self):
+
+        return f"morgan_fingerprint_radius_{self.radius}_nbits_{self.n_bits}_count_{self.count}_chiral_{self.use_chirality}"
 
 
 
