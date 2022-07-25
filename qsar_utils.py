@@ -48,7 +48,25 @@ def nearest_neighbors(reference, query, k=1, self_query=False, return_distance=F
         return i
 
 
-def modi(data, labels):
+def modi(data, labels, return_class_contribution=False):
+    """
+        Gets the MODI from the given data and label set
+        Parameters
+        ----------
+            data : array_like
+                An array chemical descriptors (rows are chemicals and columns are descriptors).
+            labels : array_like
+                An array labels that are row matched to the data array
+            return_class_contribution : bool, optional
+                if True, return the normalized MODI for each class. Useful for imbalanced datasets
+        Returns
+        -------
+            modi : float
+                the calculated MODI for the given data and label
+            class_contrib : list of tuples of length 2 (str, float), optional
+                if return_class_contribution set to true, returns associated
+                MODI score for each class in the data as a tuple of (class, MODI)
+    """
 
     # get all the classes present in the dataset
     classes = np.unique(labels)
@@ -60,19 +78,18 @@ def modi(data, labels):
 
     # calculate the modi
     modi_value = 0
+    class_contrib = []
     for c in classes:
         c_arr = np.where(labels == c)[0]
         c_labels = labels[c_arr]
-        c_nn_labels = nn_labels[c_arr].transpose()
+        c_nn_labels = nn_labels[c_arr].flatten()
         modi_value += np.sum(c_labels == c_nn_labels) / c_arr.shape[0]
+        class_contrib.append(np.sum(c_labels == c_nn_labels) / c_arr.shape[0])
 
-    return (k ** -1) * modi_value
-
-
-def generate_citations(json_data):
-    raise NotImplemented
-    # TODO takes in the json parameters of the files and create a citation list that show all the citations a user
-    #  should make based on the software and methods used in that dataset
+    if not return_class_contribution:
+        return (k ** -1) * modi_value
+    else:
+        return (k ** -1) * modi_value, class_contrib
 
 
 def apd_screening(y, training_data=None, threshold=None, norm_func=None):
@@ -179,3 +196,164 @@ def normalize(x, return_normalize_function=False):
         return res, lambda a: a / col_max
     else:
         return res
+
+
+def get_morgan_finger(mol, nbits=2048, radius=3, chiral=False, count=False, bit_info=False):
+    """
+    Get count morgan fingerprint from RDKit Mol object
+    """
+    from rdkit.Chem import AllChem
+    from rdkit.DataStructs import ConvertToNumpyArray
+
+    fp = np.ones(nbits, dtype=int)
+    bi = {}
+    if count:
+        ConvertToNumpyArray(AllChem.GetHashedMorganFingerprint(mol, nBits=nbits, radius=radius,
+                                                               useChirality=chiral, bitInfo=bi), fp)
+    else:
+        ConvertToNumpyArray(AllChem.GetMorganFingerprintAsBitVect(mol, nBits=nbits, radius=radius,
+                                                                  useChirality=chiral, bitInfo=bi), fp)
+
+    if bit_info:
+        return fp, bi
+    else:
+        return fp
+
+
+def chemical_diversity(mols, nbits=2048, radius=3, chiral=False):
+    """
+    Calculate a measure of how diverse a given set of molecules is
+
+    Uses morgan count fingerprints to convert chemicals to a coordinates and returns the mean and std of the pairwise
+    distances of all combinations. This can be compared to the values for chembl for the same morgan settings to
+    get an idea of how diverse the chemicals are. For reference with 2048 bit the max distance is srqt(2048) or 45.2548
+
+    Parameters
+    ----------
+        mols: pandas series of rdkit Mol objects
+            The molecules you want to calculate diversity for
+        nbits: int, optional default=2048
+            The number of bits for the fingerprint
+        radius: int, optional default=3
+            The radius of the fingerprint
+        chiral: bool, optional default=False
+            Use chiral fingerprints
+    Returns
+    -------
+        diversity_score: tuple
+            returns a tuple of (mean_pairwise, std_pairwise)
+    """
+    fps = np.vstack(mols[mols.columns[0]].apply(get_morgan_finger, nbits=nbits, radius=radius,
+                                                chiral=chiral, count=True).to_numpy())
+    dist = sp.distance.pdist(fps)
+
+    return np.mean(dist), np.std(dist)
+
+
+def umap(X, labels, save_loc=None, **kwargs):
+    """
+    Calculate and plots the UMap for a given set of chemical descriptors
+
+    Parameters
+    ----------
+        X: array-like
+            array of chemical descriptors
+        labels: array-like
+            array of shape [n, 1] of classification labels for umap
+        save_loc: str, optional
+            if valid file location is passed will save umap plot to file rather than showing plot
+        kwargs: optional
+            kwargs to be passed to the umap function
+
+    Returns
+    -------
+    None
+
+    """
+    import umap as _umap
+    import matplotlib.pyplot as plt
+
+    mapper = _umap.UMAP(**kwargs).fit(X)
+    _umap.plot.points(mapper, labels=labels)
+
+    if save_loc is not None:
+        plt.savefig(save_loc)
+    else:
+        plt.show()
+
+
+def get_finger_bit_substructure(mol, bit, nbits=2048, radius=3, chiral=False):
+    # TODO I think this will artificially close rings that are not known to be closed
+    # example 'Cc1c(C(O)CN2CCC3(CC2)CC(=O)N(c2ccc(S(C)(=O)=O)cn2)C3)ccc2c1COC2=O' bits 1024 radius 3 chiral with
+    #  bit 889 this 5 member ring should not be closed but the SMARTS has it closed
+
+    """
+    Will find the substructure of a given molecule at a given morgan bit and return it as a SMARTS for matching
+    plotting of the shape and a rdkit mol
+
+    Parameters
+    ----------
+        mol: rdkit Mol object
+            molecule that we want to collect bit substructures for
+        bit: int
+            the morgan bit you want to get the substructure of
+        nbits: int, optional default=2048
+            The number of bits for the fingerprint
+        radius: int, optional default=3
+            The radius of the fingerprint
+        chiral: bool, optional default=False
+            Use chiral fingerprints
+
+    Returns
+    -------
+        if bit is not set in mol returns None
+        else returns list of SMARTS for each sub structure in that bit and List of substructure mol objects
+
+    """
+    from rdkit.Chem import AllChem
+    from rdkit import Chem
+
+    _fp, bi = AllChem.GetMorganFingerprintAsBitVect(mol, nBits=nbits, radius=radius, useChirality=chiral, bitInfo=True)
+
+    if bit not in bi.keys():
+        return None
+    
+    sub_mol_smarts = []
+    sub_mols = []
+
+    for (idx, radius) in bi[bit]:
+        # get all the bonds as a path in the given environment
+        bit_path = Chem.FindAtomEnvironmentOfRadiusN(mol, radius, idx)
+
+        # get all the atom ids that attributed to the environment
+        # this will miss the last radius of bonds
+        atom_idx = {idx}
+        for bp in bit_path:
+            atom_idx.add(mol.GetBondWithIdx(bp).GetBeginAtomIdx())
+            atom_idx.add(mol.GetBondWithIdx(bp).GetEndAtomIdx())
+
+        # collect the bonds and dummy atoms leaving the edge atoms of the bit to make into smarts
+        enlarged_env = set()
+        for atom in atom_idx:
+            a = mol.GetAtomWithIdx(atom)
+            for b in a.GetBonds():
+                b_idx = b.GetIdx()
+                if b_idx not in bit_path:
+                    enlarged_env.add(b_idx)
+        enlarged_env = list(enlarged_env)
+        enlarged_env += bit_path
+
+        # covert into sub mol and save index map
+        atom_map = {}
+        sub_mol = Chem.PathToSubmol(mol, enlarged_env, atomMap=atom_map)
+        
+        # covert the atoms to dummy atoms if they were added to only get their bonds
+        for map_idx in atom_map.keys():
+            if map_idx not in atom_idx:
+                sub_mol.GetAtomWithIdx(atom_map[map_idx]).SetAtomicNum(0)
+                sub_mol.GetAtomWithIdx(atom_map[map_idx]).UpdatePropertyCache()
+
+        sub_mol_smarts.append(Chem.MolToSmarts(sub_mol))
+        sub_mols.append(sub_mol)
+
+    return sub_mol_smarts, sub_mols
