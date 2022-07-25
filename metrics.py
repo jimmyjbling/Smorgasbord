@@ -10,12 +10,9 @@ def confusion_mat(y_true, y_pred):
 
 def ppv(y_true, y_pred):
 
-
     if np.array_equal(y_true, y_pred):
-        if sum(y_true) == len(y_true):
-            return 1
-        else:
-            return 0
+        if sum(y_true) == 0:
+            return math.nan
 
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return tp / (tp + fp)
@@ -117,5 +114,4 @@ def get_classification_metrics(y_true, y_pred):
         "balanced_accuracy": balanced_accuracy(y_true, y_pred),
         "f1": f1(y_true, y_pred),
         "mcc": mcc(y_true, y_pred),
-        "auc": auc(y_true, y_pred),
     }

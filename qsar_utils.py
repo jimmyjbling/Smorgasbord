@@ -31,6 +31,7 @@ def nearest_neighbors(reference, query, k=1, self_query=False, return_distance=F
             The distances to the nearest neighbors.
     """
 
+
     # use scipy's kdtree for extra speed qsar go brrrr
     tree = sp.KDTree(reference)
 
@@ -82,7 +83,6 @@ def modi(data, labels, return_class_contribution=False):
         c_arr = np.where(labels == c)[0]
         c_labels = labels[c_arr]
         c_nn_labels = nn_labels[c_arr].flatten()
-
         modi_value += np.sum(c_labels == c_nn_labels) / c_arr.shape[0]
         class_contrib.append(np.sum(c_labels == c_nn_labels) / c_arr.shape[0])
 
