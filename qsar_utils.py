@@ -30,8 +30,6 @@ def nearest_neighbors(reference, query, k=1, self_query=False, return_distance=F
             d is element matched to i, ei the distance of i[a,b] is d[a,b]
             The distances to the nearest neighbors.
     """
-
-
     # use scipy's kdtree for extra speed qsar go brrrr
     tree = sp.KDTree(reference)
 

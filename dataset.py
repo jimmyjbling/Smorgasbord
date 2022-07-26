@@ -11,16 +11,17 @@ import os
 import pprint
 
 unit_covert_dict = {
-    "f": 10**-6,
-    "p": 10**-3,
-    "n": 10**0,
-    "u": 10**3,
-    "m": 10**6,
-    "c": 10**7,
-    "d": 10**8,
-    "": 10**9,
-    "k": 10**12
+    "f": 10 ** -6,
+    "p": 10 ** -3,
+    "n": 10 ** 0,
+    "u": 10 ** 3,
+    "m": 10 ** 6,
+    "c": 10 ** 7,
+    "d": 10 ** 8,
+    "": 10 ** 9,
+    "k": 10 ** 12
 }
+
 
 # TODO might be better to abstract this to a base dataset class and then a GraphData set child and a QSAR child
 
@@ -35,8 +36,7 @@ unit_covert_dict = {
 
 class QSARDataset:
     def __init__(self, filepath, delimiter=None, curation="default", label_col=-1, smiles_col=1, label="auto",
-                 desired_label=None, cutoff=None,  unit_col=None, mixture=False, mixture_columns=None,
-                 file_hash = None):
+                 cutoff=None, unit_col=None, file_hash=None):
         """
         base dataset object that will handle curation and process of molecular datasets. dataset objects can handle
         the following actions to process your dataset:
@@ -97,8 +97,6 @@ class QSARDataset:
                 only used if the file type is not .sdf
             label: (str: "continuous", "binary", "multiclass", "auto") | optional: default = "auto"
                 the input style of descriptors. When set to auto program will attempt to detect the label style
-            desired_label: (str: "continuous", "binary", None) | optional: default = None
-                if label is continuous, convert the label to binary or multiclass using the cutoff parameter
             cutoff: (float or list of floats) | optional: default = None
                 if desired label is not None, will attempt to us the cutoff to convert to the desired labels. otherwise,
                 it will be ignored
@@ -122,64 +120,37 @@ class QSARDataset:
 
         """
 
-        self.stored_args = {}
-        self.stored_args["filepath"] = filepath, 
-        self.stored_args["delimiter"] = delimiter, 
-        self.stored_args["curation"] = curation, 
-        self.stored_args["label_col"] =  label_col, 
-        self.stored_args["smiles_col"] = smiles_col, 
-        self.stored_args["label"] = label,
-        self.stored_args["desired_label"] = desired_label, 
-        self.stored_args["cutoff"] = cutoff,  
-        self.stored_args["unit_col"] = unit_col, 
-        self.stored_args["mixture"] = mixture, 
-        self.stored_args["mixture_columns"] = mixture_columns
+        self.stored_args = {"filepath": filepath, "delimiter": delimiter, "curation": curation,
+                            "label_col": label_col, "smiles_col": smiles_col, "label": label,
+                            "cutoff": cutoff, "unit_col": unit_col}
 
-        #why is this necessary? everything ends up in a tuple?
-        tmp_dict = {}
-        for key, val in self.stored_args.items():
-            try:
-                tmp_dict[key] = val[0]
-            except:
-                tmp_dict[key] = val
-
-        self.stored_args = tmp_dict
-
-        
         # TODO add support for mixtures splits
 
         self.name = os.path.basename(filepath)
 
         self._label = label
         self._labels = {}
-        #self.active_label = label
-        self.curation = curation
-        self.mixture = mixture
+        self._curation = curation
 
         self._failed = {}
 
         self.descriptor = DescriptorCalculator(cache=True)
 
-        self._children = {}
+        self._masks = {}
 
-        f = open(filepath, 'rb')
-        s = f.read()
-        f.close()
-        hashval = hashlib.sha256(s).hexdigest()
-        self.file_hash = hashval
+        with open(filepath, 'rb') as f:
+            s = f.read()
+            f.close()
+        self.file_hash = hashlib.sha256(s).hexdigest()
 
         if file_hash:
             if file_hash != self.file_hash:
                 raise Exception(f"File contents (sha256 hash) for {filepath} have changed!!!")
 
         self._models = {}
-        self._cv={}
+        self._cv = {}
 
         self._random_state = np.random.randint(1e8)
-        # TODO set a random state on init so that results are repeatable if wanted
-
-        # TODO store the binary cutoff and multi class cutoff of the model so the exact settings and parameters can be
-        #  saved into a jsons file for replication
 
         self._binary_cutoff = None
         self._multiclass_cutoff = None
@@ -188,22 +159,6 @@ class QSARDataset:
         if label not in ["auto", "binary", "multiclass", "continuous"]:
             raise ValueError(f"QSARDataset must have label set to 'auto', 'binary', 'multiclass' or 'continuous', "
                              f"was set to {label}")
-
-        ### HANDLE DESIRED LABEL CLASSIFICATION ###
-        if desired_label not in [None, "binary", "multiclass", "continuous"]:
-            raise ValueError(f"QSARDataset must have desired_label set to None, 'binary', 'multiclass' or "
-                             f"'continuous', was set to {desired_label}")
-
-        ### MAKE SURE DESIRED LABEL IS POSSIBLE ###
-        if desired_label is not None:
-            if label in ["binary", "multiclass"] and desired_label != label:
-                raise ValueError(f"can can only convert from continuous to binary/multiclass, set to go from {label} "
-                                 f"to {desired_label}")
-
-        # ### HANDLE BALANCING SETTINGS ###
-        # if balancing not in [None, "oversample", "downsample", "remove_similar", "remove_dissimilar"]:
-        #     raise ValueError(f'QSARDataset must have balancing set to None, "oversample", "downsample", '
-        #                      f'"remove_similar" or "remove_dissimilar" was set to {balancing}')
 
         ### HANDLE CURATION SETTINGS ###
         if curation not in ["default", None] and not callable(curation):
@@ -240,7 +195,6 @@ class QSARDataset:
         self._label_col = self._get_column_name(label_col)
         self._smiles_col = self._get_column_name(smiles_col)
         self._unit_col = self._get_column_name(unit_col)
-        self._mixture_cols = self._get_column_name(mixture_columns)
 
         # TODO lol the above wont work if a list of columns is passed, need to get the get_column_name to handle that
 
@@ -251,14 +205,12 @@ class QSARDataset:
 
         # TODO add support for multi label datasets
 
-
         if self._label == "auto":
             _labels = self.dataset[self._label_col].to_list()
             try:
                 _labels = list(map(float, _labels))
 
                 _valid_labels = [x for x in _labels if not np.isnan(x)]
-
 
                 if all([x.is_integer() for x in _valid_labels]):
                     if len(set(_valid_labels)) == 2:
@@ -280,39 +232,22 @@ class QSARDataset:
                     guess_initial_label_class = "binary"
 
             self._label = guess_initial_label_class
-            #self.active_label = guess_initial_label_class
 
-
-        #check for initial missing labels
-
-        #TODO vectorize
-        for i, label in enumerate(self.dataset[self._label_col]):
+        for i, label in zip(self.dataset.index, self.dataset[self._label_col]):
             try:
-                x = float(label)
-            except:
-                self._failed[i] = "Missing initial label"
+                float(label)
+            except ValueError:
+                self._failed.setdefault(i, []).append("Missing/improper initial label")
                 self.dataset[self._label_col][i] = np.nan
 
-            #TODO: delete this when confident it's not needed
-            '''
-            print(f"|{label}|")
-            if label == "":
-                raise Exception
-            elif np.isnan(label):
-            #also don't overwrite here, should keep multiple fail reasons
-                self._failed[i] = "Missing initial label"
-
-            #missing_labels =self.dataset[self._label_col].astype(float))
-            #missing_labels = np.isnan(self.dataset[self._label_col].astype(float))
-            #new_fail_dict = {x:"Missing initial label" for x in self.dataset[missing_labels].index}
-            #self._failed.update(new_fail_dict)
-            '''
+        if self.dataset[self._label_col].isnull().all():
+            raise ValueError("All labels corrupted. If labels are non-numeric convert to numeric with data_utils func")
 
         # save the initial labels to the dictionary
         if self._label == "continuous":
             self._labels[self._label] = self.dataset[self._label_col].astype(float)
         else:
-            self._labels[self._label] = self.dataset[self._label_col]
+            self._labels[self._label] = self.dataset[self._label_col].astype(int)
 
         ### make an ROMol column if not already present ###
         if "ROMol" not in self.dataset.columns:
@@ -336,14 +271,9 @@ class QSARDataset:
 
         if self.dataset["ROMol"].isna().sum() > 0:
             failed_indices = self.dataset['ROMol'].isna()
-            failed = self.dataset[self.dataset['ROMol'].isna()]
 
-
-            new_fail_dict = {x:"Failed to read into RDKit" for x in self.dataset[failed_indices].index}
-
-            self._failed.update(new_fail_dict)
-            #what is the empty string for? #self.dataset.dropna(subset=['ROMol', ''])
-            #self.dataset = self.dataset.dropna(subset=['ROMol'])
+            for x in self.dataset[failed_indices].index:
+                self._failed.setdefault(x, []).append("Failed to read into RDKit")
 
         if curation is None:
             pass
@@ -358,42 +288,44 @@ class QSARDataset:
                 units = [unit_covert_dict[x[0]] for x in self.dataset[self._unit_col]]
                 self._labels[self._label] = self._labels[self._label] * units
 
-            ### convert to desired label ###
-            if self._label != desired_label and desired_label is not None:
-                if desired_label == "binary":
-                    self.to_binary(cutoff)
-                if desired_label == "multiclass":
-                    self.to_multiclass(cutoff)
-
     def get_dataset(self):
-
         """
         takes the original dataset and drops failed indices (failed rdkit mols, missing labels, etc)
         josh will always use this to access the dataframe and leave the original dataframe alone
         """
-
-
-        failed_indices = self._failed.keys()
-        return self.dataset.drop(index = failed_indices)
+        return self.dataset.drop(index=self._failed.keys())
 
     def get_labels(self, kind):
- 
         """
         takes the private _labels and drops failed indices (failed rdkit mols, missing labels, etc)
         josh will always use this to access the labels and leave the original labels alone
         """
-
-       
-        failed_indices = self._failed.keys()
-
-        if kind == "binary":
+        if kind == "binary" or kind == "multiclass":
             dtype = int
         elif kind == "continuous":
             dtype = float
         else:
-            raise Exception("Supplied kind ({kind}) not implemented in get_labels()")
+            raise Exception(f"Supplied kind {kind} not implemented in get_labels()")
 
-        return np.array(self._labels[kind].drop(index = failed_indices), dtype = dtype)
+        return np.array(self._labels[kind].drop(index=self._failed.keys()), dtype=dtype)
+
+    def add_label(self, name, label):
+        if name in self._labels.keys():
+            raise ValueError(f"label {name} already exists, use set_label to override")
+        self.set_label(name, label)
+
+    def set_label(self, name, label):
+        label = np.array(label)
+        if label.shape[0] != self.dataset.shape[0] or len(label.shape) > 2:
+            raise ValueError(f"label is malformed got shape {label.shape} excepted ({self.dataset.shape[0]}, 1)")
+        self._labels[name] = label
+
+    def get_existing_labels(self):
+        return list(self._labels.keys())
+
+    def iter_labels(self):
+        for key, val in self._labels.items():
+            yield key, val
 
     def has_binary_label(self):
         return "binary" in self._labels.keys()
@@ -440,11 +372,18 @@ class QSARDataset:
         self._labels["binary"] = self._split_data(cutoff=cutoff, class_names=class_names)
 
     def set_binary_label(self, label):
-        label = np.array(label)
-        assert len(label.shape) == 1
-        assert label.shape[0] == self.dataset.shape[0]
-        assert len(set(label)) == 2
-        self._labels["binary"] = label
+        if len(set(label)) != 2:
+            raise ValueError(f"binary label not binary. got {len(set(label))} unique classes expected 2")
+        self.set_label("binary", label)
+
+    def get_binary_label(self):
+        if "binary" in self._labels.keys():
+            return self._labels["binary"]
+        else:
+            raise ValueError("dataset has no binary label. Try to create one with to_binary")
+
+    def has_multiclass_label(self):
+        return "multiclass" in self._labels.keys()
 
     def to_multiclass(self, cutoff=None, num_classes=None, class_names=None, return_cloned_df=False):
         """
@@ -493,40 +432,36 @@ class QSARDataset:
             if num_classes is None:
                 raise ValueError("if cutoff is None num_classes must not be None and greater than 1")
             else:
-                # TODO this will not work well if there are lots of duplicates in the dataset...
-                #  but a method that fixes this would slow down this greatly on large datasets...
-                #  maybe a trade of is having a check that looks for many duplicates in the dataset
-                #  or just let user know that this should not be used in such a case and manual cutoffs
-                #  need to be set???
                 cutoff = np.quantile(self._labels["continuous"], np.arange(1 / num_classes, 1, 1 / num_classes))
         self._multiclass_cutoff = cutoff
         if return_cloned_df:
-            raise NotImplemented
-            # TODO make the object clone able and return the new dataset object with just this label
+            new_dataset = copy.deepcopy(self)
+            new_dataset.__setattr__("_labels", self._split_data(cutoff=cutoff, class_names=class_names))
         self._labels["multiclass"] = self._split_data(cutoff=cutoff, class_names=class_names)
 
     def set_multiclass_label(self, label):
-        label = np.array(label)
-        assert len(label.shape) == 1
-        assert label.shape[0] == self.dataset.shape[0]
-        self._labels["multiclass"] = label
+        self.set_label("multiclass", label)
+
+    def get_multiclass_label(self):
+        if "multiclass" in self._labels.keys():
+            return self._labels["multiclass"]
+        else:
+            raise ValueError("dataset has no multiclass label. Try to create one with to_multiclass")
 
     def _split_data(self, cutoff, class_names):
         if class_names is not None:
-            if len(class_names) != len(cutoff)+1:
+            if len(class_names) != len(cutoff) + 1:
                 raise ValueError(f"number of class names and number of cutoffs mismatches. got {len(cutoff) + 1} class "
                                  f"and {len(class_names)} class names")
         else:
-            class_names = np.arange(0, len(cutoff)+1)
+            class_names = np.arange(0, len(cutoff) + 1)
 
         cutoff = [min(self._labels["continuous"].astype(float)) - 1] + list(cutoff) + \
                  [max(self._labels["continuous"].astype(float)) + 1]
         labels = np.full(self._labels["continuous"].shape[0], "")
+
         for i in range(len(class_names)):
-            # lol sorry I had to do this god
-            labels[self._labels["continuous"].astype(float).between(cutoff[i],
-                                                                    cutoff[i+1],
-                                                                    inclusive="right")] = class_names[i]
+            labels[self._labels["continuous"].astype(float).between(cutoff[i], cutoff[i + 1], inclusive="right")] = class_names[i]
         return pd.Series(labels, index=self._labels["continuous"].index)
 
     @staticmethod
@@ -545,17 +480,29 @@ class QSARDataset:
         else:
             return None
 
-    def scale_label(self, scale_factor):
-        raise NotImplemented
-        # TODO implement function
+    def scale_label(self, label, scale_factor):
+        scaled_label_name = f"scaled_{scale_factor}"
+        if isinstance(label, str):
+            scaled_label_name = f"{label}_{scaled_label_name}"
 
-    def normalize_label(self, norm):
-        raise NotImplemented
-        # TODO implement function
+        if label in self._labels.keys():
+            label = self._labels[label]
 
-    def normalize_descriptors(self, norm):
-        raise NotImplemented
-        # TODO implement function
+        label = np.array(label) * scale_factor
+
+        self.set_label(scaled_label_name, label)
+
+    def normalize_label(self, label):
+        normalized_label_name = f"normalized"
+        if isinstance(label, str):
+            normalized_label_name = f"{label}_{normalized_label_name}"
+
+        if label in self._labels.keys():
+            label = self._labels[label]
+
+        label = np.array(label) / max(label)
+
+        self.set_label(normalized_label_name, label)
 
     def _get_column_name(self, index):
         # TODO handle if index is a list of column names or indices
@@ -568,75 +515,43 @@ class QSARDataset:
                     return index
         return None
 
+    def _get_column_names(self, indexes):
+        return [self._get_column_name(idx) for idx in indexes]
+
     def to_dict(self):
-
-        d = {}
-
-        d["Arguments"] = self.stored_args
-        d["Name"] = self.name
-        d["Filepath"] = self.filepath
-        #d["Curation"] = self.curate
-        d["Label Column"] = self._label_col
-        d["SMILES Column"] = self._smiles_col
-        d["Label"] = self._label
-        d["File Hash"] = self.file_hash
-
+        d = {"Arguments": self.stored_args,
+             "Name": self.name,
+             "Filepath": self.filepath,
+             "Label Column": self._label_col,
+             "SMILES Column": self._smiles_col,
+             "Label": self._label,
+             "File Hash": self.file_hash}
         return d
 
+    def get_masks(self):
+        return self._masks
 
-    @property
-    def active_label(self):
-        return self.active_label
+    def get_mask(self, mask_name):
+        return self._masks[mask_name]
 
-    @active_label.setter
-    def active_label(self, value):
-        if value not in self._labels.keys():
-            raise ValueError(f"Error setting active label: {value} not in {self._labels.keys()}")
-        else:
-            self.active_label = value
+    def get_masked_dataset(self, mask):
+        if mask in self._masks.keys():
+            mask = self._masks[mask]
+        return self.dataset.loc[mask]
 
-    def get_active_label(self):
-        return self.active_label
-
-    def add_label(self, name, label):
-        label = np.array(label)
-        assert len(label.shape) == 1
-        assert label.shape[0] == self.dataset.shape[0]
-        self._labels[name] = label
-
-    def get_label(self, name=None):
-        if name is None:
-            return self._labels
-        return self._labels[name]
-
-    def iter_labels(self):
-        for key, val in self._labels.items():
+    def iter_masks(self):
+        for key, val in self._masks.items():
             yield key, val
 
-    def get_children(self):
-        return self._children
+    def add_mask(self, name, indices):
+        self._masks[name] = indices
 
-    def get_child_dataset(self, name):
-        return self.dataset.loc[self._children[name]]
-
-    def get_child_mask(self, name):
-        return self._children[name]
-
-    def add_child(self, name, indices):
-        self._children[name] = indices
-        self.__setattr__("name", indices)
-
-    def iter_children(self):
-        for key, val in self._children.items():
-            yield key, val
-
-    def remove_child(self, name):
-        if name in self._children.keys():
-            del self._children[name]
-            delattr(self, name)
+    def remove_mask(self, name):
+        if name in self._masks.keys():
+            del self._masks[name]
 
     def calc_descriptor(self, name):
-        func_call = "calc_"+str(name)
+        func_call = "calc_" + str(name)
         if self.descriptor.func_exists(name):
             self.descriptor.__getattribute__(func_call)(self.dataset)
         else:
@@ -670,7 +585,7 @@ class QSARDataset:
 
     def model(self, model, name=None, child=None, desc="all", label=None, metrics=None, cv=None, save_models=True,
               verbose=False):
-        #cv should be scikit splitter (like kfold)
+        # cv should be scikit splitter (like kfold)
 
         if hasattr(model, "random_state"):
             model.__setattr__("random_state", self._random_state)
@@ -694,7 +609,7 @@ class QSARDataset:
         y = self._labels[label]
 
         if child is None:
-            child = self.get_children()
+            child = self.get_masks()
         elif isinstance(child, str):
             child = [self.get_child_mask(child)]
         else:
@@ -728,12 +643,12 @@ class QSARDataset:
                                 collected_cv_stats[key].append(d[key])
                             else:
                                 collected_cv_stats[key] = [d[key]]
-                                
+
                     # mean
                     cv_mean_stats = {key: np.average(np.array(val)) for key, val in collected_cv_stats.items()}
                     # std
                     cv_std_stats = {key: np.std(np.array(val)) for key, val in collected_cv_stats.items()}
-                    
+
                     self._cv[_m] = {"mean": cv_mean_stats, "std": cv_std_stats}
                 else:
                     m = copy.deepcopy(model)
@@ -759,19 +674,7 @@ class QSARDataset:
               f"\n"
               f"Metrics use {list(metrics.keys())}")
 
-    def get_models(self, name=None):
-        if name is None:
-            return self._models
-        if isinstance(name, str):
-            return self._models[name]
-        return {n: self._models[n] for n in name}
-
-    def remove_model(self, name):
-        if name in self._models.keys():
-            del self._models[name]
-
     def curate(self):
-
         from curate import curate_mol
         results = [curate_mol(x) for x in self.dataset["ROMol"]]
 
@@ -781,14 +684,14 @@ class QSARDataset:
         modified = [x[1].structure_modified for x in results]
 
         failed = [not x[1].passed for x in results]
-        new_fail_dict = {x:"Did not pass automatic curation" for x in self.dataset[failed].index}
+        new_fail_dict = {x: "Did not pass automatic curation" for x in self.dataset[failed].index}
         self._failed.update(new_fail_dict)
 
         self.dataset["Curation history"] = histories
         self.dataset["Passed curation"] = passed
         self.dataset["Curation modified structure"] = modified
         self.dataset["Curated ROMol"] = curated_mols
-            
+
     def screen(self, screening_dataset, model=None, metrics=None):
         if model is None:
             model = list(self.get_models().values())
