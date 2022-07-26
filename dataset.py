@@ -6,9 +6,7 @@ from collections import Counter
 from descriptor import DescriptorCalculator
 import hashlib
 import copy
-from model import QSARModel
 import os
-import pprint
 
 unit_covert_dict = {
     "f": 10 ** -6,
@@ -461,7 +459,8 @@ class QSARDataset:
         labels = np.full(self._labels["continuous"].shape[0], "")
 
         for i in range(len(class_names)):
-            labels[self._labels["continuous"].astype(float).between(cutoff[i], cutoff[i + 1], inclusive="right")] = class_names[i]
+            labels[self._labels["continuous"].astype(float).between(cutoff[i], cutoff[i + 1], inclusive="right")] = \
+            class_names[i]
         return pd.Series(labels, index=self._labels["continuous"].index)
 
     @staticmethod
