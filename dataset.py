@@ -141,9 +141,9 @@ class QSARDataset:
             f.close()
         self.file_hash = hashlib.sha256(s).hexdigest()
 
-        if file_hash:
-            if file_hash != self.file_hash:
-                raise Exception(f"File contents (sha256 hash) for {filepath} have changed!!!")
+        if file_hash and file_hash != self.file_hash:
+            raise Exception(f"File contents (sha256 hash) for {filepath} have changed! set check_file_contents to "
+                            f"false to override")
 
         self._models = {}
         self._cv = {}
@@ -460,7 +460,7 @@ class QSARDataset:
 
         for i in range(len(class_names)):
             labels[self._labels["continuous"].astype(float).between(cutoff[i], cutoff[i + 1], inclusive="right")] = \
-            class_names[i]
+                class_names[i]
         return pd.Series(labels, index=self._labels["continuous"].index)
 
     @staticmethod
@@ -518,14 +518,13 @@ class QSARDataset:
         return [self._get_column_name(idx) for idx in indexes]
 
     def to_dict(self):
-        d = {"Arguments": self.stored_args,
-             "Name": self.name,
-             "Filepath": self.filepath,
-             "Label Column": self._label_col,
-             "SMILES Column": self._smiles_col,
-             "Label": self._label,
-             "File Hash": self.file_hash}
-        return d
+        return {"Arguments": self.stored_args,
+                "Name": self.name,
+                "Filepath": self.filepath,
+                "Label Column": self._label_col,
+                "SMILES Column": self._smiles_col,
+                "Label": self._label,
+                "File Hash": self.file_hash}
 
     def get_masks(self):
         return self._masks
