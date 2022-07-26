@@ -2,6 +2,17 @@ from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
 import torch
 from torch import nn
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.optim import RMSprop, SGD, Adam
+from torch.optim.lr_scheduler import ExponentialLR, StepLR
+from torch.nn.parallel import DataParallel
+
+import numpy as np
+
+
 
 # TODO instead of a wrapper class could I just set attributes of the passed model?
 
@@ -75,6 +86,160 @@ class RF(QSARModel):
     def get_string(self):
 
         return "random_forest_" + str(self.stored_args["n_estimators"])
+
+'''
+class VanillaNN(QSARModel):
+
+    def __init__(self, n_estimators = 100, **kwargs):
+
+        self.stored_args = {}
+        self.stored_args["n_estimators"] = n_estimators
+        for key, value in kwargs.items():
+            self.stored_args[key] = value
+
+        self.name = "Random Forest"
+
+
+        from sklearn.ensemble import RandomForestClassifier
+
+        self.model = RandomForestClassifier(n_estimators = n_estimators, **kwargs)
+
+    def fit(self, x, y):
+
+        self.model.fit(x, y)
+
+    def predict_probability(self, x):
+
+        try:
+            active_probability = (self.model.predict_proba(x)[:, 1])
+        except:
+            active_probability = (1 - self.model.predict_proba(x)[:, 0])
+
+        return active_probability
+
+    def to_dict(self):
+        d = {}
+        d["Name"] = self.name
+        d["Arguments"] = self.stored_args
+        return d
+
+    def get_string(self):
+
+        return "random_forest_" + str(self.stored_args["n_estimators"])
+'''
+ 
+class VanillaNN(nn.Module):
+
+
+    def __init__(self, input_shape):
+
+        super(VanillaNN, self).__init__()
+         
+        self.fc1 = nn.Linear(input_shape, 10)
+        self.fc2 = nn.Linear(10, 10)
+        self.fc3 = nn.Linear(10, 100)
+        self.fc4 = nn.Linear(100, 100)
+        self.fc5 = nn.Linear(100, 10)
+        self.fc6 = nn.Linear(10, 10)
+        self.fc7 = nn.Linear(10, 1)
+        self.sigmoid = nn.Sigmoid()
+
+        self.d1 = nn.Dropout(0.55)
+        #self.d2 = nn.Dropout(0.1)
+
+    def forward(self, x):
+
+        x = F.relu(self.fc1(x))
+        #x = self.d1(x)
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.d1(x)
+        x = F.relu(self.fc4(x))
+        x = F.relu(self.fc5(x))
+        #x = self.d2(x)
+        x = F.relu(self.fc6(x))
+        #x = self.d1(x)
+        x = self.fc7(x)
+        x = self.sigmoid(x)
+        return x
+
+class NN(QSARModel):
+
+    def __init__(self):
+        self.name = "NN"
+
+        pass
+
+    def reset(self):
+        self.model = None
+
+    def fit(self, x, y):
+
+        self.model = VanillaNN(input_shape = x.shape[1])
+ 
+        train_x = torch.tensor(x, dtype=torch.float).cuda()
+        train_y = torch.tensor(y, dtype=torch.float).cuda()
+
+        train_y = train_y.unsqueeze(dim = 1)
+
+        self.model = self.model.cuda()
+        criterion = nn.BCELoss()
+
+        learning_rate = 0.001
+
+        optimizer = optim.Adam(self.model.parameters(), lr = learning_rate)
+
+        num_epochs = 300
+
+        #train_loop
+        self.model.train()
+        for _ in range(num_epochs):
+            #print(f"\rEpoch {_}", end = "")
+
+            pred = self.model.forward(train_x)
+            loss = criterion(pred, train_y)
+            #print("Loss: ", loss)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+
+
+    def predict_probability(self, x):
+
+        test_x = torch.tensor(x, dtype=torch.float).cuda()
+
+        self.model.eval()
+        with torch.no_grad():
+            prediction = self.model.forward(test_x).cpu()
+
+        prediction = np.array(prediction.flatten())
+        return prediction
+
+    def get_string(self):
+
+        return "NN"
+
+
+    '''
+    def save(self, filename):
+        if not self.model:
+            raise Exception("Can't save model before fitting (model parameters depend on descriptor length)")
+
+        torch.save(filename)
+
+    @classmethod
+    def from_file(cls, filename):
+
+
+        m = torch.load(filename
+    '''
+
+
+
+
+
+
 class XYDataset(Dataset):
     def __init__(self, X, y):
         self.y = y

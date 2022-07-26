@@ -500,12 +500,33 @@ class TestPlate(unittest.TestCase):
         from plate import Plate
         from dataset import QSARDataset
 
+        '''
+        dataset = QSARDataset(filepath = "test_data/logp.tsv",
+                              delimiter = "\t",
+                              curation = None,
+                              label = "continuous",
+                              label_col = "Kowwin",
+                              smiles_col = "Canonical_QSARr",
+                              cutoff = 4.5)
+        '''
+
+        dataset = QSARDataset(filepath = "test_data/dyes_dichloromethane.csv",
+                              delimiter = ",",
+                              curation = None,
+                              label = "continuous",
+                              label_col = "Outcome",
+                              smiles_col = "smiles")
+
+
+
+        '''
         dataset1 = QSARDataset(filepath = "test_data/herg.sdf",
                               delimiter = "\t",
                               curation = None,
                               label = "continuous",
                               label_col = "pIC50",
                               cutoff = 5)
+        '''
 
         '''
         exit()
@@ -530,22 +551,23 @@ class TestPlate(unittest.TestCase):
 
 
         '''
-        from model import RF
+        from model import RF, NN
 
-        model1 = RF()
+        rf = RF()
+        nn = NN()
 
-        from descriptor import MorganDescriptor
-        descriptor1 = MorganDescriptor()
+        from descriptor import MorganDescriptor, RDKitDescriptor
+        morgan = MorganDescriptor()
+        rdkitdesc = RDKitDescriptor()
 
-        this_plate = Plate(datasets= [dataset1],
-                            models = [model1],
-                            descriptor_functions = [descriptor1],
+        this_plate = Plate(datasets= [dataset],
+                            models = [rf, nn],
+                            descriptor_functions = [morgan, rdkitdesc],
                             sampling_methods = ["None", "Oversampling"],
                             procedures = ["5-Fold CV", "Train"])
 
 
-
-        this_plate.run()
+        this_plate.run(output_directory = "test_output", overwrite = True)
 
 
 

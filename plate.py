@@ -1,4 +1,5 @@
 import os
+import shutil
 import yaml
 
 def KFoldSplitter(x, y, n_folds = 5):
@@ -85,7 +86,20 @@ class Plate:
             else:
                 dataset = QSARDataset(**args)
 
-    def run(self):
+    def run(self, output_directory = "default_output_directory", overwrite = False):
+
+        if output_directory == "default_output_directory":
+            print(f"WARNING: using {output_directory} for output...")
+        else:
+            print(f"Using {output_directory} for output...")
+
+        if os.path.exists(output_directory):
+            if overwrite:
+                shutil.rmtree(output_directory)
+            else:
+                raise Exception(f"Will not overwrite existing directory {output_directory} without setting 'overwrite' to True")
+
+        os.makedirs(output_directory)
 
         import itertools
         import pandas as pd
@@ -93,37 +107,54 @@ class Plate:
         modeling_results = []
         for this_dataset, this_model, this_descriptor_function in itertools.product(self.datasets, self.models, self.descriptor_functions):
 
-            s = pd.Series()
+            s = pd.Series(dtype = object)
             s["Dataset"] = this_dataset.name
             s["Model"] = this_model.get_string()
             s["Descriptor"] = this_descriptor_function.get_string()
 
 
+            print(f"Running {this_dataset.name}, {this_descriptor_function.name}, {this_model.name}...")
             descriptor_matrix = this_descriptor_function.get_descriptors(this_dataset.get_dataset()["ROMol"])
+
+            from normalize import Normalizer
+
+            #descriptor_matrix = descriptor_matrix > 0
             if "binary" not in this_dataset._labels:
                 this_dataset.to_binary()
             labels = this_dataset.get_labels(kind = "binary")
 
+            normalizer = Normalizer()
+
+            normalizer.fit(descriptor_matrix, labels)
+            descriptor_matrix = normalizer.transform(descriptor_matrix)
+
+            '''
             from qsar_utils import modi
+            print("Calculating MODI...")
             s["MODI"] = modi(descriptor_matrix, labels)
+            '''
 
             from sklearn.model_selection import train_test_split
 
             results = []
 
             for i, indx in enumerate(KFoldSplitter(descriptor_matrix, labels, n_folds = 5)):
+                print(f"Fold: {i}")
                  
                 s["Fold"] = i
 
                 x_train, x_test, y_train, y_test = indx
+                '''
+                from model import NN
+                model = NN()
+                model.fit(x_train, y_train)
+                exit()
+                '''
 
+                #this_model.reset()
                 this_model.fit(x_train, y_train)
                 pred = this_model.predict_probability(x_test)
                 train_pred = this_model.predict_probability(x_train)
-
-                print(y_test)
-                print(pred)
-
 
                 test_s = s.copy()
                 train_s = s.copy()
@@ -173,33 +204,86 @@ class Plate:
                             raise Exception("Overwriting a statistic?")
                         this_train_s[key] = val
 
+                    results.append(this_train_s)
+                    results.append(this_test_s)
+
                     modeling_results.append(this_train_s)
                     modeling_results.append(this_test_s)
 
-            modeling_results = pd.DataFrame(modeling_results)
-            modeling_results = modeling_results.sort_values(by = ["target", "Classification threshold", "Fold"])
-            modeling_results.drop(columns = ["predictions", "true labels"]).to_csv("stats.csv")
-            print(modeling_results)
-            exit()
 
+            
+            result_df = pd.DataFrame(results)
+            test_df = result_df[(result_df["target"] == "Test") & (result_df["Classification threshold"] == 0.5)]
+            train_df = result_df[(result_df["target"] == "Train") & (result_df["Classification threshold"] == 0.5)]
+            extra_data = f"Dataset: {this_dataset.name}\nDescriptor: {this_descriptor_function.name}\nModel: {this_model.name}\n"
+            threshold_plot_2(test_df["true labels"], test_df["predictions"], filename = f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_test.png", extra_data = extra_data)
+            threshold_plot_2(train_df["true labels"], train_df["predictions"], filename = f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_train.png", extra_data = extra_data)
 
-            test_df = modeling_results[modeling_results["target"] == "Test"]
-            train_df = modeling_results[modeling_results["target"] == "Train"]
+        modeling_results = pd.DataFrame(modeling_results)
+        modeling_results = modeling_results.sort_values(by = ["target", "Classification threshold", "Fold"])
+        modeling_results.drop(columns = ["predictions", "true labels"]).to_csv(f"{output_directory}/stats.csv")
 
-            threshold_plot_2(test_df["true labels"], test_df["predictions"], filename = "test.png")
-            threshold_plot_2(train_df["true labels"], train_df["predictions"], filename = "train.png")
-            result_df = pd.DataFrame(results, columns = ["Metric", "Fold"])
-            print(result_df)
-            exit()
+        final_datasets = modeling_results["Dataset"].unique()
+        final_descriptors = modeling_results["Descriptor"].unique()
+        final_models = modeling_results["Model"].unique()
+        final_thresholds = modeling_results["Classification threshold"].unique()
 
-            file_string = this_dataset.name + "_" + this_model.name + "_" + this_descriptor_function.name
-            print(file_string)
-            file_string  = clean_name(file_string)
-            print(file_string)
+        clean_results = []
+        for this_dataset, this_model, this_descriptor_function, this_threshold in itertools.product(final_datasets, final_models, final_descriptors, final_thresholds):
+            subdf = modeling_results[(modeling_results["Dataset"] == this_dataset) &
+                                     (modeling_results["Descriptor"] == this_descriptor_function) & 
+                                     (modeling_results["Model"] == this_model) &
+                                     (modeling_results["Classification threshold"] == this_threshold)]
 
-            extra_data = f"Dataset: {this_dataset.name}\nDescriptor: {this_descriptor_function.name}\nModel: {this_model.name}"
-            threshold_plot_2(y_test, pred, file_string + "_test_threshold_figure.png", extra_data + "\nPredict on: Test")
-            threshold_plot_2(y_train, train_pred, file_string + "_train_threshold_figure.png", extra_data + "\nPredict on: Train")
+            if len(subdf) == 0:
+                continue
+
+            for target in ["Train", "Test"]:
+                this_subdf = subdf[subdf["target"] == target]
+
+                import numpy as np
+
+                ppv_mean = np.mean(np.array(this_subdf["ppv"]), axis = 0)
+                ppv_std = np.std(np.array(this_subdf["ppv"]), axis = 0)
+
+                npv_mean = np.mean(np.array(this_subdf["npv"]), axis = 0)
+                npv_std = np.std(np.array(this_subdf["npv"]), axis = 0)
+
+                accuracy_mean = np.mean(np.array(this_subdf["accuracy"]), axis = 0)
+                accuracy_std = np.std(np.array(this_subdf["accuracy"]), axis = 0)
+
+                balanced_accuracy_mean = np.mean(np.array(this_subdf["balanced_accuracy"]), axis = 0)
+                balanced_accuracy_std = np.std(np.array(this_subdf["balanced_accuracy"]), axis = 0)
+
+                print(ppv_mean)
+                print(ppv_std)
+
+                s = pd.Series(dtype = object)
+
+                s["Dataset"] = this_dataset
+                s["Descriptor"] = this_descriptor_function
+                s["Model"] = this_model
+                s["Target"] = target
+                s["Threshold"] = this_threshold
+
+                s["PPV (mean)"] = ppv_mean
+                s["PPV (std dev)"] = ppv_std
+
+                s["NPV (mean)"] = npv_mean
+                s["NPV (std dev)"] = npv_std
+
+                s["Accuracy (mean)"] = accuracy_mean
+                s["Accuracy (std dev)"] = accuracy_std
+
+                s["Balanced Accuracy (mean)"] = balanced_accuracy_mean
+                s["Balanced Accuracy (std dev)"] = balanced_accuracy_std
+
+                clean_results.append(s)
+
+        clean_df = pd.DataFrame(clean_results)
+        clean_df = clean_df.sort_values(by = ["Target", "Dataset", "Descriptor", "Model"])
+        clean_df.to_csv(f"{output_directory}/clean_stats.csv")
+        print(clean_df)
 
 def clean_name(name):
 
@@ -276,9 +360,6 @@ def threshold_plot_2(y_true, y_pred, filename, extra_data = None):
         y_true = list(y_true)
         y_pred = list(y_pred)
 
-    print(y_true)
-
-
     from metrics import get_classification_metrics, auc, ppv, npv, accuracy, balanced_accuracy
 
     ppvs = []
@@ -354,8 +435,6 @@ def threshold_plot_2(y_true, y_pred, filename, extra_data = None):
     ax2.plot(thresholds, balanced_accuracy_mean, label = "Balanced Accuracy")
     ax2.fill_between(thresholds, balanced_accuracy_mean - balanced_accuracy_std, balanced_accuracy_mean + balanced_accuracy_std, alpha = 0.3)
     ax1.plot(thresholds, num_active_mean, color = "red", linestyle = "--")
-    print(num_active_mean)
-    print(num_active_std)
     #ax2.fill_between(thresholds, num_active_mean - num_active_std, num_active_mean + num_active_std, alpha = 0.3, color = "red")
     ax2.fill_between(thresholds, num_active_mean - num_active_std, num_active_mean + num_active_std, alpha = 1, color = "red")
     ax2.yaxis.label.set_text("Value of Metric")
@@ -377,3 +456,4 @@ def threshold_plot_2(y_true, y_pred, filename, extra_data = None):
     if extra_data:
         ax2.text(-0.5, 0.5, extra_data, fontsize = 8)
     plt.savefig(filename, bbox_inches = "tight", dpi = 300)
+    plt.close()

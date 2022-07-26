@@ -20,11 +20,15 @@ def ppv(y_true, y_pred):
 
 def npv(y_true, y_pred):
 
+    '''
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return math.nan
         else:
             return 1
+    '''
+    if sum(y_pred) == len(y_pred):
+        return math.nan
 
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return tn / (tn + fn)
