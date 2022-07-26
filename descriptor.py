@@ -3,6 +3,7 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from rdkit.DataStructs import ConvertToNumpyArray
 
+
 # TODO ADD SUPPORT FOR NONE PANDAS OBJECTS
 
 # TODO add logging for when descriptors are None, dont want to remove any rows here just return Nan/Nones
@@ -18,8 +19,8 @@ class Descriptor:
     def to_string(self):
         raise NotImplementedError
 
-class MorganDescriptor(Descriptor):
 
+class MorganDescriptor(Descriptor):
     def __init__(self, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
         self.radius = radius
         self.n_bits = n_bits
@@ -45,12 +46,12 @@ class MorganDescriptor(Descriptor):
 
     def get_descriptors(self, romols):
 
-        #COME BACK AND VECTORIZE
+        # COME BACK AND VECTORIZE
         if not self.count:
             _fp = [AllChem.GetHashedMorganFingerprint(x,
-                                    radius=self.radius, 
-                                    nBits = self.n_bits,
-                                    useChirality = self.use_chirality) for x in romols]
+                                                      radius=self.radius,
+                                                      nBits=self.n_bits,
+                                                      useChirality=self.use_chirality) for x in romols]
         else:
             raise NotImplementedError
             _fp = df["ROMol"].apply(AllChem.GetMorganFingerprintAsBitVect,
@@ -71,8 +72,6 @@ class MorganDescriptor(Descriptor):
         return f"morgan_fingerprint_radius_{self.radius}_nbits_{self.n_bits}_count_{self.count}_chiral_{self.use_chirality}"
 
 
-
-
 class DescriptorCalculator:
     def __init__(self, cache=False):
         self._cache = cache
@@ -83,12 +82,12 @@ class DescriptorCalculator:
 
         fp = np.zeros(n_bits, dtype=np.int32)
 
-        #COME BACK AND VECTORIZE
+        # COME BACK AND VECTORIZE
         if count:
             _fp = [AllChem.GetHashedMorganFingerprint(x,
-                                    radius=radius, 
-                                    nBits = n_bits,
-                                    useChirality = use_chirality) for x in df["ROMol"]]
+                                                      radius=radius,
+                                                      nBits=n_bits,
+                                                      useChirality=use_chirality) for x in df["ROMol"]]
         else:
             _fp = df["ROMol"].apply(AllChem.GetMorganFingerprintAsBitVect,
                                     kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
@@ -102,7 +101,8 @@ class DescriptorCalculator:
         fp = np.vstack(fp)
 
         if self._cache:
-            self.__setattr__("morgan", ({"radius": radius, "n_bits": n_bits, "count": count, "use_chirality": use_chirality}, fp))
+            self.__setattr__("morgan",
+                             ({"radius": radius, "n_bits": n_bits, "count": count, "use_chirality": use_chirality}, fp))
 
         return fp
 
@@ -164,7 +164,7 @@ class DescriptorCalculator:
             self.__setattr__("mordred", ({}, mordred_desc))
         else:
             return mordred_desc
-    
+
     def calc_custom(self, df, name, func, kwargs=None):
         # TODO add in support to save custom descriptor calculations to the calc object so that the dataset object can
         #  auto detect them
@@ -174,7 +174,7 @@ class DescriptorCalculator:
             self.__setattr__(name, (kwargs, desc))
         else:
             return desc
-        
+
     def add_descriptor(self, name, desc, options=None):
         if self._cache:
             if options is None:
