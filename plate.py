@@ -2,12 +2,21 @@ import os
 import shutil
 import yaml
 
-def KFoldSplitter(x, y, n_folds = 5):
 
-    from sklearn.model_selection import KFold
-    kf = KFold(n_splits = n_folds)
-    for train_indices, test_indices in kf.split(x):
-        yield (x[train_indices], x[test_indices], y[train_indices], y[test_indices])
+class KFoldSplitter:
+
+    def __init__(self, n_folds = 5):
+        self.n_folds = n_folds
+
+    def split(self, x):
+        from sklearn.model_selection import KFold
+        kf = KFold(n_splits = self.n_folds, shuffle = True)
+        for train_indices, test_indices in kf.split(x):
+            yield (train_indices, test_indices)
+
+    def get_name(self):
+
+        return f"{self.n_folds}-Fold Cross Validation"
 
 
 class Plate:
@@ -104,239 +113,265 @@ class Plate:
         import itertools
         import pandas as pd
 
+        ###OVERRIDE
+        ###OVERRIDE
+        ###OVERRIDE
+        self.splitters = [KFoldSplitter(n_folds = 5)]
+        ###OVERRIDE
+        ###OVERRIDE
+        ###OVERRIDE
         modeling_results = []
-        for this_dataset, this_model, this_descriptor_function in itertools.product(self.datasets, self.models, self.descriptor_functions):
+        for this_dataset in self.datasets:
+            for this_splitter in self.splitters:
 
-            s = pd.Series(dtype = object)
-            s["Dataset"] = this_dataset.name
-            s["Model"] = this_model.get_string()
-            s["Descriptor"] = this_descriptor_function.get_string()
+                this_folds = [x for x in this_splitter.split(this_dataset.get_dataset())]
+
+                for this_model, this_descriptor_function in itertools.product(self.models, self.descriptor_functions):
+
+                    s = pd.Series(dtype = object)
+                    s["Dataset"] = this_dataset.name
+                    s["Model"] = this_model.get_string()
+                    s["Descriptor"] = this_descriptor_function.get_string()
+                    s["Splitter"] = this_splitter.get_name()
 
 
-            print(f"Running {this_dataset.name}, {this_descriptor_function.name}, {this_model.name}...")
-            descriptor_matrix = this_descriptor_function.get_descriptors(this_dataset.get_dataset()["ROMol"])
+                    print(f"Running {this_dataset.name}, {this_descriptor_function.name}, {this_model.name}...")
+                    descriptor_matrix = this_descriptor_function.get_descriptors(this_dataset.get_dataset()["ROMol"])
 
-            s["Dataset Size"] = len(descriptor_matrix)
+                    s["Dataset Size"] = len(descriptor_matrix)
 
-            from normalize import Normalizer
+                    from normalize import Normalizer
 
-            
-            for this_task in this_dataset.tasks:
-                if this_task == "classification":
+                    
+                    for this_task in this_dataset.tasks:
+                        if this_task == "classification":
 
-                    s["Task"] = "classification"
+                            s["Task"] = "classification"
 
-                    #descriptor_matrix = descriptor_matrix > 0
-                    if "binary" not in this_dataset._labels:
-                        this_dataset.to_binary()
-                    labels = this_dataset.get_labels(kind = "binary")
+                            #descriptor_matrix = descriptor_matrix > 0
+                            if "binary" not in this_dataset._labels:
+                                this_dataset.to_binary()
+                            labels = this_dataset.get_labels(kind = "binary")
 
-                    normalizer = Normalizer()
+                            inchis = [Chem.MolToInchi(x) for x in this_dataset.get_dataset()["ROMol"]]
 
-                    normalizer.fit(descriptor_matrix, labels)
-                    descriptor_matrix = normalizer.transform(descriptor_matrix)
+                            normalizer = Normalizer()
 
-                    '''
-                    from qsar_utils import modi
-                    print("Calculating MODI...")
-                    s["MODI"] = modi(descriptor_matrix, labels)
-                    '''
+                            normalizer.fit(descriptor_matrix, labels)
+                            descriptor_matrix = normalizer.transform(descriptor_matrix)
 
-                    from sklearn.model_selection import train_test_split
+                            '''
+                            from qsar_utils import modi
+                            print("Calculating MODI...")
+                            s["MODI"] = modi(descriptor_matrix, labels)
+                            '''
 
-                    results = []
+                            from sklearn.model_selection import train_test_split
 
-                    for i, indx in enumerate(KFoldSplitter(descriptor_matrix, labels, n_folds = 5)):
-                        print(f"Fold: {i}")
-                         
-                        s["Fold"] = i
+                            results = []
 
-                        s["Train Size"] = len(x_train)
-                        s["Test Size"] = len(x_test)
+                            fold_ids = {}
 
-                        x_train, x_test, y_train, y_test = indx
-                        '''
-                        from model import NN
-                        model = NN()
-                        model.fit(x_train, y_train)
-                        exit()
-                        '''
+                            for i, indx in enumerate(this_folds):
+                                print(f"Fold: {i}")
+                                 
+                                s["Fold"] = i
 
-                        #this_model.reset()
-                        this_model.fit(x_train, y_train, output_filename = f"{output_directory}/loss_test.png")
-                        pred = this_model.predict_probability(x_test)
-                        train_pred = this_model.predict_probability(x_train)
+                                x_train = descriptor_matrix[train_indices]
+                                y_train = labels[train_indices]
 
-                        test_s = s.copy()
-                        train_s = s.copy()
-                        test_s["target"] = "Test" 
-                        train_s["target"] = "Train"
-                        test_s["predictions"] = pred
-                        train_s["predictions"] = train_pred
+                                x_test = descriptor_matrix[test_indices]
+                                y_test = labels[test_indices]
 
-                        train_s["true labels"] = y_train
-                        test_s["true labels"] = y_test
 
-                        '''
-                        from qsar_utils import apd_screening
-                        train_ad = apd_screening(y = x_train, training_data=x_train, threshold=None, norm_func=None)
-                        test_ad = apd_screening(y = x_test, training_data=x_train, threshold=None, norm_func=None)
-                        train_coverage = sum(train_ad) / len(train_ad)
-                        test_coverage = sum(test_ad) / len(test_ad)
+                                s["Train Size"] = len(x_train)
+                                s["Test Size"] = len(x_test)
 
-                        train_s["ad coverage"] = train_coverage 
-                        test_s["ad coverage"] = test_coverage 
-                        '''
+                                train_indices, test_indices = indx
+                                '''
+                                from model import NN
+                                model = NN()
+                                model.fit(x_train, y_train)
+                                exit()
+                                '''
 
-                        from metrics import get_classification_metrics, auc
-                        train_s["auc"] = auc(y_train, train_pred)
-                        test_s["auc"] = auc(y_test, pred)
+                                #this_model.reset()
+                                this_model.fit(x_train, y_train, output_filename = f"{output_directory}/loss_test.png")
+                                pred = this_model.predict_probability(x_test)
+                                train_pred = this_model.predict_probability(x_train)
 
-                        for standard_threshold in [0.5, 0.6, 0.7, 0.8, 0.9]:
+                                test_s = s.copy()
+                                train_s = s.copy()
+                                test_s["target"] = "Test" 
+                                train_s["target"] = "Train"
+                                test_s["predictions"] = pred
+                                train_s["predictions"] = train_pred
+
+                                train_s["true labels"] = y_train
+                                test_s["true labels"] = y_test
+
+                                '''
+                                from qsar_utils import apd_screening
+                                train_ad = apd_screening(y = x_train, training_data=x_train, threshold=None, norm_func=None)
+                                test_ad = apd_screening(y = x_test, training_data=x_train, threshold=None, norm_func=None)
+                                train_coverage = sum(train_ad) / len(train_ad)
+                                test_coverage = sum(test_ad) / len(test_ad)
+
+                                train_s["ad coverage"] = train_coverage 
+                                test_s["ad coverage"] = test_coverage 
+                                '''
+
+                                from metrics import get_classification_metrics, auc
+                                train_s["auc"] = auc(y_train, train_pred)
+                                test_s["auc"] = auc(y_test, pred)
+
+                                for standard_threshold in [0.5, 0.6, 0.7, 0.8, 0.9]:
+
+                                    
+                                    this_test_s = test_s.copy()
+                                    this_test_s["Classification threshold"] = standard_threshold
+                                    thresholded = pred >= standard_threshold
+                                    stats = get_classification_metrics(y_test, thresholded)
+
+                                    for key, val in stats.items():
+                                        if key in this_test_s:
+                                            raise Exception("Overwriting a statistic?")
+                                        this_test_s[key] = val
+
+                                    this_train_s = train_s.copy()
+                                    this_train_s["Classification threshold"] = standard_threshold
+                                    thresholded = train_pred >= standard_threshold
+                                    stats = get_classification_metrics(y_train, thresholded)
+
+                                    for key, val in stats.items():
+                                        if key in this_train_s:
+                                            raise Exception("Overwriting a statistic?")
+                                        this_train_s[key] = val
+
+                                    results.append(this_train_s)
+                                    results.append(this_test_s)
+
+                                    modeling_results.append(this_train_s)
+                                    modeling_results.append(this_test_s)
+
 
                             
-                            this_test_s = test_s.copy()
-                            this_test_s["Classification threshold"] = standard_threshold
-                            thresholded = pred >= standard_threshold
-                            stats = get_classification_metrics(y_test, thresholded)
-
-                            for key, val in stats.items():
-                                if key in this_test_s:
-                                    raise Exception("Overwriting a statistic?")
-                                this_test_s[key] = val
-
-                            this_train_s = train_s.copy()
-                            this_train_s["Classification threshold"] = standard_threshold
-                            thresholded = train_pred >= standard_threshold
-                            stats = get_classification_metrics(y_train, thresholded)
-
-                            for key, val in stats.items():
-                                if key in this_train_s:
-                                    raise Exception("Overwriting a statistic?")
-                                this_train_s[key] = val
-
-                            results.append(this_train_s)
-                            results.append(this_test_s)
-
-                            modeling_results.append(this_train_s)
-                            modeling_results.append(this_test_s)
+                            result_df = pd.DataFrame(results)
+                            test_df = result_df[(result_df["target"] == "Test") & (result_df["Classification threshold"] == 0.5)]
+                            train_df = result_df[(result_df["target"] == "Train") & (result_df["Classification threshold"] == 0.5)]
+                            extra_data = f"Dataset: {this_dataset.name}\nDescriptor: {this_descriptor_function.name}\nModel: {this_model.name}\n"
+                            threshold_plot_2(test_df["true labels"], test_df["predictions"], filename = f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_test.png", extra_data = extra_data)
+                            threshold_plot_2(train_df["true labels"], train_df["predictions"], filename = f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_train.png", extra_data = extra_data)
 
 
-                    
-                    result_df = pd.DataFrame(results)
-                    test_df = result_df[(result_df["target"] == "Test") & (result_df["Classification threshold"] == 0.5)]
-                    train_df = result_df[(result_df["target"] == "Train") & (result_df["Classification threshold"] == 0.5)]
-                    extra_data = f"Dataset: {this_dataset.name}\nDescriptor: {this_descriptor_function.name}\nModel: {this_model.name}\n"
-                    threshold_plot_2(test_df["true labels"], test_df["predictions"], filename = f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_test.png", extra_data = extra_data)
-                    threshold_plot_2(train_df["true labels"], train_df["predictions"], filename = f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_train.png", extra_data = extra_data)
+                        elif this_task == "regression":
+
+                            if "continuous" not in this_dataset._labels:
+                                raise Exception("come on dude")
+
+                            s["Task"] = "regression"
+
+                            labels = this_dataset.get_labels(kind = "continuous")
+
+                            normalizer = Normalizer()
+
+                            normalizer.fit(descriptor_matrix, labels)
+                            descriptor_matrix = normalizer.transform(descriptor_matrix)
+
+                            from sklearn.model_selection import train_test_split
+
+                            results = []
+
+                            for i, indx in enumerate(this_folds):
+                                print(f"Fold: {i}")
+                                 
+                                s["Fold"] = i
+
+                                train_indices, test_indices = indx
+
+                                x_train = descriptor_matrix[train_indices]
+                                y_train = labels[train_indices]
+
+                                x_test = descriptor_matrix[test_indices]
+                                y_test = labels[test_indices]
 
 
-                elif this_task == "regression":
+                                s["Train Size"] = len(x_train)
+                                s["Test Size"] = len(x_test)
 
-                    if "continuous" not in this_dataset._labels:
-                        raise Exception("come on dude")
+                                #this_model.reset()
+                                if this_model.name == "NNRegressor":
+                                    this_model.fit(x_train, y_train, output_filename = f"{output_directory}/nnregressor_loss_fold_{i}.png")
+                                else:
+                                    this_model.fit(x_train, y_train)
+                                pred = this_model.predict(x_test)
+                                train_pred = this_model.predict(x_train)
 
-                    s["Task"] = "regression"
+                                test_s = s.copy()
+                                train_s = s.copy()
+                                test_s["target"] = "Test" 
+                                train_s["target"] = "Train"
+                                test_s["predictions"] = pred
+                                train_s["predictions"] = train_pred
 
-                    labels = this_dataset.get_labels(kind = "continuous")
+                                train_s["true labels"] = y_train
+                                test_s["true labels"] = y_test
 
-                    normalizer = Normalizer()
+                                #TODO: put r2 into metrics
+                                from sklearn.metrics import r2_score as r2
+                                from sklearn.metrics import mean_absolute_error as mae
+                                from sklearn.metrics import mean_squared_error as mse
 
-                    normalizer.fit(descriptor_matrix, labels)
-                    descriptor_matrix = normalizer.transform(descriptor_matrix)
+                                train_s["r2"] = r2(y_train, train_pred)
+                                test_s["r2"] = r2(y_test, pred)
 
-                    from sklearn.model_selection import train_test_split
+                                train_s["mae"] = mae(y_train, train_pred)
+                                test_s["mae"] = mae(y_test, pred)
 
-                    results = []
+                                train_s["mse"] = mse(y_train, train_pred)
+                                test_s["mse"] = mse(y_test, pred)
 
-                    for i, indx in enumerate(KFoldSplitter(descriptor_matrix, labels, n_folds = 5)):
-                        print(f"Fold: {i}")
-                         
-                        s["Fold"] = i
+                                results.append(train_s)
+                                results.append(test_s)
 
-                        x_train, x_test, y_train, y_test = indx
-                        '''
-                        from model import NN
-                        model = NN()
-                        model.fit(x_train, y_train)
-                        exit()
-                        '''
-                        s["Train Size"] = len(x_train)
-                        s["Test Size"] = len(x_test)
+                                modeling_results.append(train_s)
+                                modeling_results.append(test_s)
 
-                        #this_model.reset()
-                        if this_model.name == "NNRegressor":
-                            this_model.fit(x_train, y_train, output_filename = f"{output_directory}/nnregressor_loss_fold_{i}.png")
+                            
+                            result_df = pd.DataFrame(results)
+                            print(result_df)
+
+
+                            #plot scatter
+
+                            train_preds = result_df["predictions"][result_df["target"] == "Train"]
+                            train_labels = result_df["true labels"][result_df["target"] == "Train"]
+                            test_preds = result_df["predictions"][result_df["target"] == "Test"]
+                            test_labels = result_df["true labels"][result_df["target"] == "Test"]
+
+                            import matplotlib.pyplot as plt
+                            plt.figure()
+                            for i in range(len(train_preds)):
+                                    plt.scatter(test_labels.iloc[i], test_preds.iloc[i], label = f"Fold {i}", alpha = 0.5)
+
+                            plt.legend()
+                            plt.xlabel("Ground Truth")
+                            plt.ylabel("Prediction")
+                            plt.savefig(f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_scatter_test.png")
+
+                            import matplotlib.pyplot as plt
+                            plt.figure()
+                            for i in range(len(train_preds)):
+                                    plt.scatter(train_labels.iloc[i], train_preds.iloc[i], label = f"Fold {i}", alpha = 0.5)
+
+                            plt.legend()
+                            plt.xlabel("Ground Truth")
+                            plt.ylabel("Prediction")
+                            plt.savefig(f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_scatter_train.png")
+
+
                         else:
-                            this_model.fit(x_train, y_train)
-                        pred = this_model.predict(x_test)
-                        train_pred = this_model.predict(x_train)
-
-                        test_s = s.copy()
-                        train_s = s.copy()
-                        test_s["target"] = "Test" 
-                        train_s["target"] = "Train"
-                        test_s["predictions"] = pred
-                        train_s["predictions"] = train_pred
-
-                        train_s["true labels"] = y_train
-                        test_s["true labels"] = y_test
-
-                        #TODO: put r2 into metrics
-                        from sklearn.metrics import r2_score as r2
-                        from sklearn.metrics import mean_absolute_error as mae
-                        from sklearn.metrics import mean_squared_error as mse
-
-                        train_s["r2"] = r2(y_train, train_pred)
-                        test_s["r2"] = r2(y_test, pred)
-
-                        train_s["mae"] = mae(y_train, train_pred)
-                        test_s["mae"] = mae(y_test, pred)
-
-                        train_s["mse"] = mse(y_train, train_pred)
-                        test_s["mse"] = mse(y_test, pred)
-
-                        results.append(train_s)
-                        results.append(test_s)
-
-                        modeling_results.append(train_s)
-                        modeling_results.append(test_s)
-
-                    
-                    result_df = pd.DataFrame(results)
-                    print(result_df)
-
-
-                    #plot scatter
-
-                    train_preds = result_df["predictions"][result_df["target"] == "Train"]
-                    train_labels = result_df["true labels"][result_df["target"] == "Train"]
-                    test_preds = result_df["predictions"][result_df["target"] == "Test"]
-                    test_labels = result_df["true labels"][result_df["target"] == "Test"]
-
-                    import matplotlib.pyplot as plt
-                    plt.figure()
-                    for i in range(len(train_preds)):
-                            plt.scatter(test_labels.iloc[i], test_preds.iloc[i], label = f"Fold {i}", alpha = 0.5)
-
-                    plt.legend()
-                    plt.xlabel("Ground Truth")
-                    plt.ylabel("Prediction")
-                    plt.savefig(f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_scatter_test.png")
-
-                    import matplotlib.pyplot as plt
-                    plt.figure()
-                    for i in range(len(train_preds)):
-                            plt.scatter(train_labels.iloc[i], train_preds.iloc[i], label = f"Fold {i}", alpha = 0.5)
-
-                    plt.legend()
-                    plt.xlabel("Ground Truth")
-                    plt.ylabel("Prediction")
-                    plt.savefig(f"{output_directory}/{this_model.name}_{this_descriptor_function.name}_scatter_train.png")
-
-
-                else:
-                    raise Exception("come on dude")
+                            raise Exception("come on dude")
 
         modeling_results = pd.DataFrame(modeling_results)
 
