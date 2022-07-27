@@ -111,6 +111,11 @@ class TestDataset(unittest.TestCase):
 
 class TestModeling(unittest.TestCase):
 
+
+
+
+
+
     def test_working(self):
 
         from dataset import QSARDataset
@@ -563,6 +568,39 @@ class TestPlate(unittest.TestCase):
         this_plate = Plate(datasets= [dataset],
                             models = [rf, nn],
                             descriptor_functions = [morgan, rdkitdesc],
+                            sampling_methods = ["None", "Oversampling"],
+                            procedures = ["5-Fold CV", "Train"])
+
+
+        this_plate.run(output_directory = "test_output", overwrite = True)
+
+
+    def test_dye_regression(self):
+
+        from plate import Plate
+        from dataset import QSARDataset
+
+        dataset = QSARDataset(filepath = "test_data/dyes_dichloromethane.csv",
+                              delimiter = ",",
+                              curation = None,
+                              label = "continuous",
+                              label_col = "Outcome",
+                              smiles_col = "smiles",
+                              tasks = ["regression"])
+
+
+        from model import RFRegressor, NNRegressor
+
+        rf = RFRegressor()
+        nn = NNRegressor()
+
+        from descriptor import MorganDescriptor, RDKitDescriptor
+        morgan = MorganDescriptor(radius = 5)
+        rdkitdesc = RDKitDescriptor()
+
+        this_plate = Plate(datasets= [dataset],
+                            models = [nn, rf],
+                            descriptor_functions = [rdkitdesc, morgan],
                             sampling_methods = ["None", "Oversampling"],
                             procedures = ["5-Fold CV", "Train"])
 

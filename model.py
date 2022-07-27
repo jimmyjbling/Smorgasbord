@@ -48,9 +48,11 @@ class QSARModel:
 
         raise NotImplementedError
 
-class RF(QSARModel):
+class RFClassifier(QSARModel):
 
     def __init__(self, n_estimators = 100, **kwargs):
+
+        self.task = "classification"
 
         self.stored_args = {}
         self.stored_args["n_estimators"] = n_estimators
@@ -87,10 +89,11 @@ class RF(QSARModel):
 
         return "random_forest_" + str(self.stored_args["n_estimators"])
 
-'''
-class VanillaNN(QSARModel):
+class RFRegressor(QSARModel):
 
     def __init__(self, n_estimators = 100, **kwargs):
+
+        self.task = "regression"
 
         self.stored_args = {}
         self.stored_args["n_estimators"] = n_estimators
@@ -100,22 +103,17 @@ class VanillaNN(QSARModel):
         self.name = "Random Forest"
 
 
-        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.ensemble import RandomForestRegressor
 
-        self.model = RandomForestClassifier(n_estimators = n_estimators, **kwargs)
+        self.model = RandomForestRegressor(n_estimators = n_estimators, **kwargs)
 
     def fit(self, x, y):
 
         self.model.fit(x, y)
 
-    def predict_probability(self, x):
+    def predict(self, x):
 
-        try:
-            active_probability = (self.model.predict_proba(x)[:, 1])
-        except:
-            active_probability = (1 - self.model.predict_proba(x)[:, 0])
-
-        return active_probability
+        return self.model.predict(x)
 
     def to_dict(self):
         d = {}
@@ -126,14 +124,14 @@ class VanillaNN(QSARModel):
     def get_string(self):
 
         return "random_forest_" + str(self.stored_args["n_estimators"])
-'''
+
  
-class VanillaNN(nn.Module):
+class VanillaNNClassifier(nn.Module):
 
 
     def __init__(self, input_shape):
 
-        super(VanillaNN, self).__init__()
+        super(VanillaNNClassifier, self).__init__()
          
         self.fc1 = nn.Linear(input_shape, 10)
         self.fc2 = nn.Linear(10, 10)
@@ -144,7 +142,7 @@ class VanillaNN(nn.Module):
         self.fc7 = nn.Linear(10, 1)
         self.sigmoid = nn.Sigmoid()
 
-        self.d1 = nn.Dropout(0.55)
+        #self.d1 = nn.Dropout(0.55)
         #self.d2 = nn.Dropout(0.1)
 
     def forward(self, x):
@@ -163,7 +161,7 @@ class VanillaNN(nn.Module):
         x = self.sigmoid(x)
         return x
 
-class NN(QSARModel):
+class NNClassifier(QSARModel):
 
     def __init__(self):
         self.name = "NN"
@@ -175,7 +173,7 @@ class NN(QSARModel):
 
     def fit(self, x, y):
 
-        self.model = VanillaNN(input_shape = x.shape[1])
+        self.model = VanillaNNClassifier(input_shape = x.shape[1])
  
         train_x = torch.tensor(x, dtype=torch.float).cuda()
         train_y = torch.tensor(y, dtype=torch.float).cuda()
@@ -219,6 +217,124 @@ class NN(QSARModel):
     def get_string(self):
 
         return "NN"
+
+
+    '''
+    def save(self, filename):
+        if not self.model:
+            raise Exception("Can't save model before fitting (model parameters depend on descriptor length)")
+
+        torch.save(filename)
+
+    @classmethod
+    def from_file(cls, filename):
+
+
+        m = torch.load(filename
+    '''
+
+
+ 
+class VanillaNNRegressor(nn.Module):
+
+
+    def __init__(self, input_shape):
+
+        super(VanillaNNRegressor, self).__init__()
+         
+        self.fc1 = nn.Linear(input_shape, 10)
+        self.fc2 = nn.Linear(10, 10)
+        self.fc3 = nn.Linear(10, 100)
+        self.fc4 = nn.Linear(100, 100)
+        self.fc5 = nn.Linear(100, 10)
+        self.fc6 = nn.Linear(10, 10)
+        self.fc7 = nn.Linear(10, 1)
+
+        self.d1 = nn.Dropout(0.55)
+        #self.d2 = nn.Dropout(0.1)
+
+    def forward(self, x):
+
+        x = F.relu(self.fc1(x))
+        #x = self.d1(x)
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.d1(x)
+        x = F.relu(self.fc4(x))
+        x = F.relu(self.fc5(x))
+        #x = self.d2(x)
+        x = F.relu(self.fc6(x))
+        #x = self.d1(x)
+        x = self.fc7(x)
+        return x
+
+class NNRegressor(QSARModel):
+
+    def __init__(self):
+        self.name = "NNRegressor"
+
+        pass
+
+    def reset(self):
+        self.model = None
+
+    def fit(self, x, y, output_filename = None):
+
+        self.model = VanillaNNRegressor(input_shape = x.shape[1])
+ 
+        train_x = torch.tensor(x, dtype=torch.float).cuda()
+        train_y = torch.tensor(y, dtype=torch.float).cuda()
+
+        train_y = train_y.unsqueeze(dim = 1)
+
+        self.model = self.model.cuda()
+        #criterion = nn.L1Loss()
+        criterion = nn.MSELoss()
+
+        learning_rate = 0.001
+
+        optimizer = optim.Adam(self.model.parameters(), lr = learning_rate)
+
+        num_epochs = 1000
+
+        #train_loop
+        self.model.train()
+
+
+        losses = []
+        for _ in range(num_epochs):
+
+            pred = self.model.forward(train_x)
+            loss = criterion(pred, train_y)
+            losses.append(loss)
+            #print(f"Epoch {_}, Loss = {loss}")
+            #print(f"\rEpoch {_}, Loss = {loss}", end = "")
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        if output_filename:
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.plot(range(len(losses)), losses)
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.savefig(output_filename)
+
+    def predict(self, x):
+
+        test_x = torch.tensor(x, dtype=torch.float).cuda()
+
+        self.model.eval()
+        with torch.no_grad():
+            prediction = self.model.forward(test_x).cpu()
+
+        prediction = np.array(prediction.flatten())
+        return prediction
+
+    def get_string(self):
+
+        return "NNRegressor"
 
 
     '''

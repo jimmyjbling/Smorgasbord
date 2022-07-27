@@ -36,7 +36,7 @@ unit_covert_dict = {
 class QSARDataset:
     def __init__(self, filepath, delimiter=None, curation="default", label_col=-1, smiles_col=1, label="auto",
                  desired_label=None, cutoff=None,  unit_col=None, mixture=False, mixture_columns=None,
-                 file_hash = None):
+                 file_hash = None, tasks = ["classification"]):
         """
         base dataset object that will handle curation and process of molecular datasets. dataset objects can handle
         the following actions to process your dataset:
@@ -134,6 +134,9 @@ class QSARDataset:
         self.stored_args["unit_col"] = unit_col, 
         self.stored_args["mixture"] = mixture, 
         self.stored_args["mixture_columns"] = mixture_columns
+
+        #TODO: check for errors here
+        self.tasks = tasks
 
         #why is this necessary? everything ends up in a tuple?
         tmp_dict = {}
