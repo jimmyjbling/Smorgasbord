@@ -6,9 +6,7 @@ from collections import Counter
 from descriptor import DescriptorCalculator
 import hashlib
 import copy
-from model import QSARModel
 import os
-import pprint
 
 unit_covert_dict = {
     "f": 10 ** -6,
@@ -143,9 +141,9 @@ class QSARDataset:
             f.close()
         self.file_hash = hashlib.sha256(s).hexdigest()
 
-        if file_hash:
-            if file_hash != self.file_hash:
-                raise Exception(f"File contents (sha256 hash) for {filepath} have changed!!!")
+        if file_hash and file_hash != self.file_hash:
+            raise Exception(f"File contents (sha256 hash) for {filepath} have changed! set check_file_contents to "
+                            f"false to override")
 
         self._models = {}
         self._cv = {}
@@ -461,7 +459,8 @@ class QSARDataset:
         labels = np.full(self._labels["continuous"].shape[0], "")
 
         for i in range(len(class_names)):
-            labels[self._labels["continuous"].astype(float).between(cutoff[i], cutoff[i + 1], inclusive="right")] = class_names[i]
+            labels[self._labels["continuous"].astype(float).between(cutoff[i], cutoff[i + 1], inclusive="right")] = \
+                class_names[i]
         return pd.Series(labels, index=self._labels["continuous"].index)
 
     @staticmethod
@@ -519,14 +518,13 @@ class QSARDataset:
         return [self._get_column_name(idx) for idx in indexes]
 
     def to_dict(self):
-        d = {"Arguments": self.stored_args,
-             "Name": self.name,
-             "Filepath": self.filepath,
-             "Label Column": self._label_col,
-             "SMILES Column": self._smiles_col,
-             "Label": self._label,
-             "File Hash": self.file_hash}
-        return d
+        return {"Arguments": self.stored_args,
+                "Name": self.name,
+                "Filepath": self.filepath,
+                "Label Column": self._label_col,
+                "SMILES Column": self._smiles_col,
+                "Label": self._label,
+                "File Hash": self.file_hash}
 
     def get_masks(self):
         return self._masks
@@ -583,97 +581,6 @@ class QSARDataset:
         if desc.shape[0] == self.dataset.shape[0]:
             self.descriptor.add_descriptor(name, desc)
 
-    def model(self, model, name=None, child=None, desc="all", label=None, metrics=None, cv=None, save_models=True,
-              verbose=False):
-        # cv should be scikit splitter (like kfold)
-
-        if hasattr(model, "random_state"):
-            model.__setattr__("random_state", self._random_state)
-
-        if name is None:
-            name = len(self._models)
-            while name in self._models.keys():
-                name += 1
-
-        if isinstance(desc, str):
-            if desc == "all":
-                desc = self.descriptor.get_all_descriptors()
-            else:
-                desc = [tuple([desc]) + self.descriptor.__getattribute__(desc)]
-        else:
-            desc = [tuple([d]) + self.descriptor.__getattribute__(d) for d in desc]
-
-        if label is None:
-            label = self.active_label
-
-        y = self._labels[label]
-
-        if child is None:
-            child = self.get_masks()
-        elif isinstance(child, str):
-            child = [self.get_child_mask(child)]
-        else:
-            child = [self.get_child_mask(c) for c in child]
-
-        # TODO use itertools product to make this one loop so we can tqdm it
-        for child_name, child_mask in child:
-            for desc_name, desc_setting, X in desc:
-                if cv is not None:
-                    cv_stats = []
-                    _m = QSARModel(self, model, name, child_mask, child_name, desc_name, desc_setting, label)
-                    for i, train_index, val_index in enumerate(cv.split(X, y)):
-                        X_train, X_val = X[train_index], X[val_index]
-                        y_train, y_val = y[train_index], y[val_index]
-                        m = copy.deepcopy(model)
-                        _name = str(name) + f"_{i}"
-                        m.fit(X_train, y_train)
-                        m = QSARModel(self, m, name, child_mask, child_name, desc_name, desc_setting, label)
-                        if save_models:
-                            self._models[name] = m
-                        self._screen(m, X_val, y_val, metircs)
-                        if verbose:
-                            self._print_screening_header(self, m.name, desc_name, child_name, label, metrics)
-                            pprint.pprint(m.screening_stats[self])
-                        cv_stats.append({key: val(y, y_pred) for key, val in metrics.items()})
-
-                    collected_cv_stats = {}
-                    for d in cv_stats:
-                        for key in d:
-                            if key in collected_cv_stats:
-                                collected_cv_stats[key].append(d[key])
-                            else:
-                                collected_cv_stats[key] = [d[key]]
-
-                    # mean
-                    cv_mean_stats = {key: np.average(np.array(val)) for key, val in collected_cv_stats.items()}
-                    # std
-                    cv_std_stats = {key: np.std(np.array(val)) for key, val in collected_cv_stats.items()}
-
-                    self._cv[_m] = {"mean": cv_mean_stats, "std": cv_std_stats}
-                else:
-                    m = copy.deepcopy(model)
-                    m.fit(X, y)
-                    m = QSARModel(self, m, name, child_mask, child_name, desc_name, desc_setting, label)
-                    if save_models:
-                        self._models[name] = m
-                    if metrics is not None:
-                        self._screen(m, X, y)
-                        m.screening_stats[screening_dataset] = {key: val(y, y_pred) for key, val in metrics.items()}
-                        if verbose:
-                            self._print_screening_header(self, m.name, desc_name, child_name, label, metrics)
-                            pprint.pprint(m.screening_stats[self])
-
-    def _print_screening_header(self, model_name, screening_df, desc_name, child_name, label, metrics):
-        print(f"Model {model_name}:\n"
-              f"Trained on:\n"
-              f"\t{self.name} with descriptor set {desc_name} with settings f{desc_setting}\n"
-              f"\tchild mask {child_name}\n"
-              f"\tlabel {label}"
-              f"\n"
-              f"Screened against {screening_df.name}\n"
-              f"\n"
-              f"Metrics use {list(metrics.keys())}")
-
     def curate(self):
         from curate import curate_mol
         results = [curate_mol(x) for x in self.dataset["ROMol"]]
@@ -691,75 +598,6 @@ class QSARDataset:
         self.dataset["Passed curation"] = passed
         self.dataset["Curation modified structure"] = modified
         self.dataset["Curated ROMol"] = curated_mols
-
-    def screen(self, screening_dataset, model=None, metrics=None):
-        if model is None:
-            model = list(self.get_models().values())
-        elif not isinstance(model, (tuple, list)):
-            if isinstance(model, str):
-                model = [self.get_models(model)[model]]
-            else:
-                model = [model]
-        else:
-            if isinstance(model[0], QSARModel):
-                model = model
-            elif isinstance(model[0], str):
-                model = [self.get_models(m)[m] for m in model]
-        if not isinstance(model[0], QSARModel):
-            raise ValueError(f"models are not valid. Make sure you are passing names of models that exist for this "
-                             f"dataset object or QSARModel objects. view model names with .get_models()")
-
-        if metrics is None:
-            if getattr(model, "_estimator_type", None) == "classifier":
-                metrics = "all_classification"
-            elif getattr(model, "_estimator_type", None) == "regressor":
-                metrics = "all_regression"
-            else:
-                raise ValueError("model does not define a _estimator_type, metrics must be stated explicitly")
-
-        metric_functions = __import__(metrics)
-        if isinstance(metrics, str):
-            if metrics == "all_classification":
-                metrics = getattr(metric_functions, "get_classification_metrics")()
-            elif metrics == "all_regression":
-                metrics = getattr(metric_functions, "get_regression_metrics")()
-            else:
-                metrics = {metrics: getattr(metric_functions, metrics)}
-        else:
-            metrics = {m: getattr(metric_functions, m) for m in metrics}
-
-        for m in model:
-            desc_name = m.desc_name
-            if desc_name in screening_dataset.descriptor.__dict__.keys():
-                desc = screening_dataset.descriptor.__getattribute__(desc_name)
-                desc_settings = m.desc_settings
-                if desc[0] != desc_settings:
-                    screening_dataset.calc_descriptor(desc_name)
-                    X = screening_dataset.descriptor.__getattribute__(desc_name)[1]
-                else:
-                    X = desc[1]
-            else:
-                # TODO add in support to auto detect and calculate native merged descriptors
-                raise ValueError(f"Could not find matching descriptor set in screening dataset. Model descriptor set is"
-                                 f" {desc_name} and screening dataset only has "
-                                 f"{[_ for _ in screening_dataset.descriptor.__dict__.keys() if _ != '_cache']} "
-                                 f"and can only calculate {screening_dataset.descriptor.get_descriptor_funcs}")
-
-            label = m.label
-            if label in screening_dataset.get_label().keys():
-                y = screening_dataset.get_label(label)[label]
-            else:
-                raise ValueError(f"screening set label and model label do not match: model label is {label} screening "
-                                 f"labels are {list(screening_dataset.get_label().keys())}")
-
-            self._screen(m, X, y, metrics)
-            m.screening_stats[screening_dataset] = {key: val(y, y_pred) for key, val in metrics.items()}
-
-    @staticmethod
-    def _screen(model, X, y):
-        y_pred = model.model.pred(X, y)
-        model.__setattr__("pred", y_pred)
-        # lol I'm 70% confident that python classes hash to their mem loc id, so I can use it as a dict key
 
     def balance(self, method="downsample"):
         raise NotImplemented

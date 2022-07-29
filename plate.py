@@ -1,89 +1,72 @@
 import os
 import yaml
 
-def KFoldSplitter(x, y, n_folds = 5):
 
+def KFoldSplitter(x, y, n_folds=5):
     from sklearn.model_selection import KFold
-    kf = KFold(n_splits = n_folds)
+    kf = KFold(n_splits=n_folds)
     for train_indices, test_indices in kf.split(x):
         yield (x[train_indices], x[test_indices], y[train_indices], y[test_indices])
 
 
 class Plate:
 
-    def __init__(self, datasets = [], models = [], descriptor_functions = [], sampling_methods = [], procedures = []):
+    def __init__(self, datasets=None, models=None, descriptor_functions=None, sampling_methods=None, procedures=None):
 
-        self.datasets = datasets
-        self.models = models
-        self.descriptor_functions = descriptor_functions
-        self.sampling_methods = sampling_methods
-        self.procedures = procedures #cross-val, training, or screening
+        self.datasets = datasets if datasets is not None else []
+        self.models = models if models is not None else []
+        self.descriptor_functions = descriptor_functions if descriptor_functions is not None else []
+        self.sampling_methods = sampling_methods if sampling_methods is not None else []
+        self.procedures = procedures if procedures is not None else []  # cross-val, training, or screening
 
     def to_yaml(self, filename):
 
-        '''
-        def represent_none(self, _):
-            return self.represent_scalar('tag:yaml.org,2002:null', 'None')
-
-        yaml.add_representer(type(None), represent_none)
-        '''
-
-        s = {}
-
-        s["Datasets"] = [x.to_dict() for x in self.datasets]
-        s["Models"] = [x.to_dict() for x in self.models]
-        s["Descriptor Functions"] = [x.to_dict() for x in self.descriptor_functions]
-        s["Sampling Methods"] = [x for x in self.sampling_methods]
-        s["Procedures"] = [x for x in self.procedures]
+        # def represent_none(self, _):
+        #     return self.represent_scalar('tag:yaml.org,2002:null', 'None')
+        #
+        # yaml.add_representer(type(None), represent_none)
 
         from datetime import datetime
-        s["Metadata"] = {}
-        s["Metadata"]["Date"] = str(datetime.now())
-        s["Metadata"]["User"] = os.getlogin()
 
-        try:
-            host_dict = os.uname()
-            d = {}
-            d["OS Name"] = host_dict[0]
-            d["Hostname"] = host_dict[1]
-
-            #maybe a security problem lol
-            #d["Kernel"] = host_dict[2]
-            #d["Flavor"] = host_dict[3]
-            d["Arch"] = host_dict[4]
-            s["Metadata"]["Host"] = d
-        except:
-            pass
+        host_dict = os.uname()
+        s = {
+            "Datasets": [x.to_dict() for x in self.datasets], "Models": [x.to_dict() for x in self.models],
+            "Descriptor Functions": [x.to_dict() for x in self.descriptor_functions],
+            "Sampling Methods": [x for x in self.sampling_methods], "Procedures": [x for x in self.procedures],
+            "Metadata": {
+                "Date": str(datetime.now()),
+                "User": os.getlogin(),
+                "Host": {
+                    "OS Name": host_dict.sysname if "sysname" in host_dict.__dict__.keys() else None,
+                    "Hostname": host_dict.nodename if "nodename" in host_dict.__dict__.keys() else None,
+                    "Arch": host_dict.machine if "machine" in host_dict.__dict__.keys() else None
+                }
+            }
+        }
 
         s = yaml.dump(s)
 
-        
-        f = open(filename, 'w')
-        f.write(s)
-        f.close()
-            
-    @staticmethod
-    def from_yaml(filename, check_file_contents = True):
+        with open(filename, 'w') as f:
+            f.write(s)
+            f.close()
 
-        from yaml import Loader
-        f = open(filename, 'r')
-        d = yaml.load(f, Loader = Loader)
-        f.close()
-        print(d)
-
+    def from_yaml(self, filename, check_file_contents=True):
         from dataset import QSARDataset
-        dataset_dicts = d["Datasets"]
-        for dataset_dict in dataset_dicts:
-            print(dataset_dict)
-            args = dataset_dict["Arguments"]
-            if check_file_contents:
-                file_hash = None
-                if "File Hash" in dataset_dict:
-                    file_hash = dataset_dict["File Hash"]
 
-                dataset = QSARDataset(file_hash = file_hash, **args)
+        with open(filename, 'r') as f:
+            d = yaml.load(f, Loader=yaml.Loader)
+            f.close()
+
+        # print(d)  #DEBUG LINE
+        dataset_dicts = d["Datasets"]
+
+        for dataset_dict in dataset_dicts:
+            # print(dataset_dict)  #DEBUG LINE
+            args = dataset_dict["Arguments"]
+            if check_file_contents and "File Hash" in dataset_dict:
+                self.datasets.append(QSARDataset(file_hash=dataset_dict["File Hash"], **args))
             else:
-                dataset = QSARDataset(**args)
+                self.datasets.append(QSARDataset(**args))
 
     def run(self):
 
@@ -91,18 +74,18 @@ class Plate:
         import pandas as pd
 
         modeling_results = []
-        for this_dataset, this_model, this_descriptor_function in itertools.product(self.datasets, self.models, self.descriptor_functions):
+        for this_dataset, this_model, this_descriptor_function in itertools.product(self.datasets, self.models,
+                                                                                    self.descriptor_functions):
 
             s = pd.Series()
             s["Dataset"] = this_dataset.name
             s["Model"] = this_model.get_string()
             s["Descriptor"] = this_descriptor_function.get_string()
 
-
             descriptor_matrix = this_descriptor_function.get_descriptors(this_dataset.get_dataset()["ROMol"])
             if "binary" not in this_dataset._labels:
                 this_dataset.to_binary()
-            labels = this_dataset.get_labels(kind = "binary")
+            labels = this_dataset.get_labels(kind="binary")
 
             from qsar_utils import modi
             s["MODI"] = modi(descriptor_matrix, labels)
@@ -111,8 +94,8 @@ class Plate:
 
             results = []
 
-            for i, indx in enumerate(KFoldSplitter(descriptor_matrix, labels, n_folds = 5)):
-                 
+            for i, indx in enumerate(KFoldSplitter(descriptor_matrix, labels, n_folds=5)):
+
                 s["Fold"] = i
 
                 x_train, x_test, y_train, y_test = indx
@@ -124,10 +107,9 @@ class Plate:
                 print(y_test)
                 print(pred)
 
-
                 test_s = s.copy()
                 train_s = s.copy()
-                test_s["target"] = "Test" 
+                test_s["target"] = "Test"
                 train_s["target"] = "Train"
                 test_s["predictions"] = pred
                 train_s["predictions"] = train_pred
@@ -152,7 +134,6 @@ class Plate:
 
                 for standard_threshold in [0.5, 0.6, 0.7, 0.8, 0.9]:
 
-                    
                     this_test_s = test_s.copy()
                     this_test_s["Classification threshold"] = standard_threshold
                     thresholded = pred >= standard_threshold
@@ -177,45 +158,44 @@ class Plate:
                     modeling_results.append(this_test_s)
 
             modeling_results = pd.DataFrame(modeling_results)
-            modeling_results = modeling_results.sort_values(by = ["target", "Classification threshold", "Fold"])
-            modeling_results.drop(columns = ["predictions", "true labels"]).to_csv("stats.csv")
+            modeling_results = modeling_results.sort_values(by=["target", "Classification threshold", "Fold"])
+            modeling_results.drop(columns=["predictions", "true labels"]).to_csv("stats.csv")
             print(modeling_results)
             exit()
-
 
             test_df = modeling_results[modeling_results["target"] == "Test"]
             train_df = modeling_results[modeling_results["target"] == "Train"]
 
-            threshold_plot_2(test_df["true labels"], test_df["predictions"], filename = "test.png")
-            threshold_plot_2(train_df["true labels"], train_df["predictions"], filename = "train.png")
-            result_df = pd.DataFrame(results, columns = ["Metric", "Fold"])
+            threshold_plot_2(test_df["true labels"], test_df["predictions"], filename="test.png")
+            threshold_plot_2(train_df["true labels"], train_df["predictions"], filename="train.png")
+            result_df = pd.DataFrame(results, columns=["Metric", "Fold"])
             print(result_df)
             exit()
 
             file_string = this_dataset.name + "_" + this_model.name + "_" + this_descriptor_function.name
             print(file_string)
-            file_string  = clean_name(file_string)
+            file_string = clean_name(file_string)
             print(file_string)
 
             extra_data = f"Dataset: {this_dataset.name}\nDescriptor: {this_descriptor_function.name}\nModel: {this_model.name}"
-            threshold_plot_2(y_test, pred, file_string + "_test_threshold_figure.png", extra_data + "\nPredict on: Test")
-            threshold_plot_2(y_train, train_pred, file_string + "_train_threshold_figure.png", extra_data + "\nPredict on: Train")
+            threshold_plot_2(y_test, pred, file_string + "_test_threshold_figure.png",
+                             extra_data + "\nPredict on: Test")
+            threshold_plot_2(y_train, train_pred, file_string + "_train_threshold_figure.png",
+                             extra_data + "\nPredict on: Train")
+
 
 def clean_name(name):
-
     name = name.replace(".", "_")
     return name
-    
 
-def threshold_plot(y_true, y_pred, filename, extra_data = None):
 
+def threshold_plot(y_true, y_pred, filename, extra_data=None):
     import pandas as pd
     if type(y_true) == pd.Series:
         y_true = list(y_true)
         y_pred = list(y_pred)
 
     print(y_true)
-
 
     from metrics import get_classification_metrics, auc, ppv, npv, accuracy, balanced_accuracy
 
@@ -226,10 +206,9 @@ def threshold_plot(y_true, y_pred, filename, extra_data = None):
     nums_active = []
     import numpy as np
 
-    #make super stat plot
-    thresholds = np.arange(0,1,0.01)
+    # make super stat plot
+    thresholds = np.arange(0, 1, 0.01)
     for threshold in thresholds:
-
         thresholded = y_pred > threshold
 
         ppvs.append(ppv(y_true, thresholded))
@@ -238,46 +217,43 @@ def threshold_plot(y_true, y_pred, filename, extra_data = None):
         balanced_accuracies.append(balanced_accuracy(y_true, thresholded))
         nums_active.append(sum(thresholded))
 
-
     import matplotlib.pyplot as plt
     plt.figure()
     fig, ax2 = plt.subplots()
     ax1 = ax2.twinx()
-    ax2.plot(thresholds, ppvs, label = "PPV")
-    ax2.plot(thresholds, npvs, label = "NPV")
-    ax2.plot(thresholds, accuracies, label = "Accuracy")
-    ax2.plot(thresholds, balanced_accuracies, label = "Balanced Accuracy")
-    ax1.plot(thresholds, nums_active, color = "red", linestyle = "--")
+    ax2.plot(thresholds, ppvs, label="PPV")
+    ax2.plot(thresholds, npvs, label="NPV")
+    ax2.plot(thresholds, accuracies, label="Accuracy")
+    ax2.plot(thresholds, balanced_accuracies, label="Balanced Accuracy")
+    ax1.plot(thresholds, nums_active, color="red", linestyle="--")
     ax2.yaxis.label.set_text("Value of Metric")
     ax1.yaxis.label.set_text("--- Number of predicted actives")
     ax1.yaxis.label.set_color("red")
     ax2.set_xlabel("Classification Threshold")
     ax1.spines['right'].set_color('red')
-    ax1.tick_params(axis = 'y', colors = 'red')
+    ax1.tick_params(axis='y', colors='red')
     plt.title("Validation Stats as a Function of Changing Threshold")
-    ax2.set_xticks(np.arange(0,1.1,0.1))
-    ax2.set_yticks(np.arange(0,1.1,0.1))
+    ax2.set_xticks(np.arange(0, 1.1, 0.1))
+    ax2.set_yticks(np.arange(0, 1.1, 0.1))
     ax2.set_xlim((0, 1))
     ax2.set_ylim((0, 1))
     ax1.set_xlim((0, 1))
     ax1.set_ylim((0, max(nums_active)))
-    ax2.grid(visible = True, axis = 'both', alpha = 0.5)
+    ax2.grid(visible=True, axis='both', alpha=0.5)
     ax2.legend(bbox_to_anchor=(-0.1, 1), loc='upper right', ncol=1)
 
     if extra_data:
-        ax2.text(-0.5, 0.5, extra_data, fontsize = 8)
-    plt.savefig(filename, bbox_inches = "tight", dpi = 300)
+        ax2.text(-0.5, 0.5, extra_data, fontsize=8)
+    plt.savefig(filename, bbox_inches="tight", dpi=300)
 
 
-def threshold_plot_2(y_true, y_pred, filename, extra_data = None):
-
+def threshold_plot_2(y_true, y_pred, filename, extra_data=None):
     import pandas as pd
     if type(y_true) == pd.Series:
         y_true = list(y_true)
         y_pred = list(y_pred)
 
     print(y_true)
-
 
     from metrics import get_classification_metrics, auc, ppv, npv, accuracy, balanced_accuracy
 
@@ -289,7 +265,7 @@ def threshold_plot_2(y_true, y_pred, filename, extra_data = None):
 
     import numpy as np
 
-    thresholds = np.arange(0,1,0.01)
+    thresholds = np.arange(0, 1, 0.01)
 
     all_ppvs = []
     all_npvs = []
@@ -309,7 +285,6 @@ def threshold_plot_2(y_true, y_pred, filename, extra_data = None):
         this_y_true = y_true[i]
 
         for threshold in thresholds:
-
             thresholded = this_y_pred > threshold
 
             ppvs.append(ppv(this_y_true, thresholded))
@@ -324,56 +299,57 @@ def threshold_plot_2(y_true, y_pred, filename, extra_data = None):
         all_balanced_accuracies.append(balanced_accuracies)
         all_nums_active.append(nums_active)
 
+    ppv_mean = np.mean(np.array(all_ppvs), axis=0)
+    ppv_std = np.std(np.array(all_ppvs), axis=0)
 
-    ppv_mean = np.mean(np.array(all_ppvs), axis = 0)
-    ppv_std = np.std(np.array(all_ppvs), axis = 0)
+    npv_mean = np.mean(np.array(all_npvs), axis=0)
+    npv_std = np.std(np.array(all_npvs), axis=0)
 
-    npv_mean = np.mean(np.array(all_npvs), axis = 0)
-    npv_std = np.std(np.array(all_npvs), axis = 0)
+    accuracy_mean = np.mean(np.array(all_accuracies), axis=0)
+    accuracy_std = np.std(np.array(all_accuracies), axis=0)
 
-    accuracy_mean = np.mean(np.array(all_accuracies), axis = 0)
-    accuracy_std = np.std(np.array(all_accuracies), axis = 0)
+    balanced_accuracy_mean = np.mean(np.array(all_balanced_accuracies), axis=0)
+    balanced_accuracy_std = np.std(np.array(all_balanced_accuracies), axis=0)
 
-    balanced_accuracy_mean = np.mean(np.array(all_balanced_accuracies), axis = 0)
-    balanced_accuracy_std = np.std(np.array(all_balanced_accuracies), axis = 0)
-
-    num_active_mean = np.mean(np.array(all_nums_active), axis = 0)
-    num_active_std = np.std(np.array(all_nums_active), axis = 0)
+    num_active_mean = np.mean(np.array(all_nums_active), axis=0)
+    num_active_std = np.std(np.array(all_nums_active), axis=0)
 
     import matplotlib.pyplot as plt
 
     plt.figure()
     fig, ax2 = plt.subplots()
     ax1 = ax2.twinx()
-    ax2.plot(thresholds, ppv_mean, label = "PPV")
-    ax2.fill_between(thresholds, ppv_mean - ppv_std, ppv_mean + ppv_std, alpha = 0.3)
-    ax2.plot(thresholds, npv_mean, label = "NPV")
-    ax2.fill_between(thresholds, npv_mean - npv_std, npv_mean + npv_std, alpha = 0.3)
-    ax2.plot(thresholds, accuracy_mean, label = "Accuracy")
-    ax2.fill_between(thresholds, accuracy_mean - accuracy_std, accuracy_mean + accuracy_std, alpha = 0.3)
-    ax2.plot(thresholds, balanced_accuracy_mean, label = "Balanced Accuracy")
-    ax2.fill_between(thresholds, balanced_accuracy_mean - balanced_accuracy_std, balanced_accuracy_mean + balanced_accuracy_std, alpha = 0.3)
-    ax1.plot(thresholds, num_active_mean, color = "red", linestyle = "--")
+    ax2.plot(thresholds, ppv_mean, label="PPV")
+    ax2.fill_between(thresholds, ppv_mean - ppv_std, ppv_mean + ppv_std, alpha=0.3)
+    ax2.plot(thresholds, npv_mean, label="NPV")
+    ax2.fill_between(thresholds, npv_mean - npv_std, npv_mean + npv_std, alpha=0.3)
+    ax2.plot(thresholds, accuracy_mean, label="Accuracy")
+    ax2.fill_between(thresholds, accuracy_mean - accuracy_std, accuracy_mean + accuracy_std, alpha=0.3)
+    ax2.plot(thresholds, balanced_accuracy_mean, label="Balanced Accuracy")
+    ax2.fill_between(thresholds, balanced_accuracy_mean - balanced_accuracy_std,
+                     balanced_accuracy_mean + balanced_accuracy_std, alpha=0.3)
+    ax1.plot(thresholds, num_active_mean, color="red", linestyle="--")
     print(num_active_mean)
     print(num_active_std)
-    #ax2.fill_between(thresholds, num_active_mean - num_active_std, num_active_mean + num_active_std, alpha = 0.3, color = "red")
-    ax2.fill_between(thresholds, num_active_mean - num_active_std, num_active_mean + num_active_std, alpha = 1, color = "red")
+    # ax2.fill_between(thresholds, num_active_mean - num_active_std, num_active_mean + num_active_std, alpha = 0.3, color = "red")
+    ax2.fill_between(thresholds, num_active_mean - num_active_std, num_active_mean + num_active_std, alpha=1,
+                     color="red")
     ax2.yaxis.label.set_text("Value of Metric")
     ax1.yaxis.label.set_text("--- Number of predicted actives")
     ax1.yaxis.label.set_color("red")
     ax2.set_xlabel("Classification Threshold")
     ax1.spines['right'].set_color('red')
-    ax1.tick_params(axis = 'y', colors = 'red')
+    ax1.tick_params(axis='y', colors='red')
     plt.title("Validation Stats as a Function of Changing Threshold")
-    ax2.set_xticks(np.arange(0,1.1,0.1))
-    ax2.set_yticks(np.arange(0,1.1,0.1))
+    ax2.set_xticks(np.arange(0, 1.1, 0.1))
+    ax2.set_yticks(np.arange(0, 1.1, 0.1))
     ax2.set_xlim((0, 1))
     ax2.set_ylim((0, 1))
     ax1.set_xlim((0, 1))
     ax1.set_ylim((0, max(nums_active)))
-    ax2.grid(visible = True, axis = 'both', alpha = 0.5)
+    ax2.grid(visible=True, axis='both', alpha=0.5)
     ax2.legend(bbox_to_anchor=(-0.1, 1), loc='upper right', ncol=1)
 
     if extra_data:
-        ax2.text(-0.5, 0.5, extra_data, fontsize = 8)
-    plt.savefig(filename, bbox_inches = "tight", dpi = 300)
+        ax2.text(-0.5, 0.5, extra_data, fontsize=8)
+    plt.savefig(filename, bbox_inches="tight", dpi=300)
