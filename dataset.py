@@ -573,8 +573,8 @@ class QSARDataset:
 
         self.add_descriptor_set("_".join(name), np.concatenate(desc_sets, axis=-1))
 
-    def calc_custom_descriptor(self, name, func, kwargs=None):
-        self.descriptor.calc_custom(self.dataset, name, func, kwargs)
+    def calc_custom_descriptor(self, name, func, **kwargs):
+        self.descriptor.calc_custom_descriptor(self.dataset, name, func, **kwargs)
 
     def add_descriptor_set(self, name, desc):
         desc = np.array(desc)
