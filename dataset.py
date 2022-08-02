@@ -21,18 +21,175 @@ unit_covert_dict = {
 }
 
 
-# TODO might be better to abstract this to a base dataset class and then a GraphData set child and a QSAR child
+class BaseDataset:
+    def __init__(self, filepath, delimiter=None, smiles_col=1, file_hash=None):
+        self.stored_args = {"filepath": filepath, "delimiter": delimiter, "smiles_col": smiles_col}
 
-# TODO add classes for torch dataset objects and pytorch geometric datasets???
+        # prep file
+        self.name = os.path.basename(filepath)
+        self.filepath = filepath.strip()
 
-# TODO make dataset iterable so that it can be used with torch data loaders
+        # check if hash matches
+        self._check_hash(file_hash)
 
-# TODO someday add support for a given dataset to be passed rather than a file to be read in
+        # load file
+        self._load_file(delimiter)
+        self._smiles_col = self._get_column_name(smiles_col)
 
-# TODO QUESTION: should we support datasets that do not have a molecule associated with them???
+        # prep descriptor generation
+        self.descriptor = DescriptorCalculator(cache=True)
+        self._random_state = np.random.randint(1e8)
+        self._smiles_col = smiles_col
+        self._failed = {}  # hold index of entries that failed to load or process
+
+        # sampling mask dictionary
+        self._masks = {}
+
+    def _generate_rdkit_mols(self):
+        if "ROMol" not in self.dataset.columns:
+            if self._smiles_col is not None:
+                try:
+                    self.dataset["ROMol"] = self.dataset[self._smiles_col].apply(
+                        Chem.MolFromSmiles
+                    )
+                except TypeError:
+                    raise ValueError(
+                        f"failed to parse smiles_col at index location {self._smiles_col} verify "
+                        f"that this column contains valid smile strings"
+                    )
+            else:
+                raise ValueError(
+                    f"failed to recognize smiles_col of {self._smiles_col}. it is required when not using a sdf"
+                    f" file as input. if you dataset has Inchi keys or SELFIES, use the relevant qsar_util "
+                    f"functions to preprocess your dataset and add SMILES"
+                )
+
+        if self.dataset["ROMol"].isna().sum() > 0:
+            failed_indices = self.dataset['ROMol'].isna()
+
+            for x in self.dataset[failed_indices].index:
+                self._failed.setdefault(x, []).append("Failed to read into RDKit")
+
+    def _check_hash(self, file_hash):
+        with open(self.filepath, 'rb') as f:
+            s = f.read()
+            f.close()
+        self.file_hash = hashlib.sha256(s).hexdigest()
+
+        if file_hash and file_hash != self.file_hash:
+            raise Exception(f"File contents (sha256 hash) for {self.filepath} have changed! set check_file_contents to "
+                            f"false to override")
+
+    def _load_file(self, delimiter):
+        try:
+            tail = self.filepath.split(".")[1]
+        except IndexError:
+            raise ValueError("file type not defined please specify file type (.sdf, .csv, .tab, etc...)")
+
+        if tail.lower() == "sdf":
+            df = LoadSDF(self.filepath)
+
+        else:
+            if delimiter is not None:
+                if tail == ".csv":
+                    delimiter = ","
+                if tail == ".tab":
+                    delimiter = "\t"
+                if tail == ".txt":
+                    delimiter = " "
+            df = pd.read_csv(self.filepath, delimiter=delimiter)
+
+        self.dataset = df
+
+    def get_dataset(self):
+        """
+        takes the original dataset and drops failed indices (failed rdkit mols, missing labels, etc)
+        josh will always use this to access the dataframe and leave the original dataframe alone
+        """
+        return self.dataset.drop(index=self._failed.keys())
+
+    def _get_column_name(self, index):
+        if index is not None:
+            if isinstance(index, int):
+                if index < len(self.dataset.columns):
+                    return self.dataset.columns[index]
+            elif isinstance(index, str):
+                if index in list(self.dataset.columns):
+                    return index
+        return None
+
+    def _get_column_names(self, indexes):
+        return [self._get_column_name(idx) for idx in indexes]
+
+    def calc_descriptor(self, name):
+        func_call = "calc_" + str(name)
+        if self.descriptor.func_exists(name):
+            self.descriptor.__getattribute__(func_call)(self.dataset)
+        else:
+            raise AttributeError(f"cannot find function to calculate descriptor set {name}. can calculate "
+                                 f"{[_.replace('calc_', '') for _ in dir(self.descriptor) if 'calc_' in _ and callable(self.descriptor.__getattribute__(_))]}")
+
+    def merge_descriptors(self, descriptors):
+        name = []
+        desc_sets = []
+        desc_options = ()
+        if isinstance(descriptors, str):
+            descriptors = [descriptors]
+        for desc in descriptors:
+            if desc in self.descriptor.__dict__.keys():
+                name.append(desc)
+                desc_options = desc_options + (self.descriptor.__getattribute__(desc)[0])
+                desc_sets.append(self.descriptor.__getattribute__(desc)[1])
+
+        assert len(set([_.shape for _ in desc_sets])) <= 1
+        assert len(set([_.shape[0] for _ in desc_sets])) <= 1
+
+        self.add_descriptor_set("_".join(name), np.concatenate(desc_sets, axis=-1))
+
+    def calc_custom_descriptor(self, name, func, **kwargs):
+        self.descriptor.calc_custom_descriptor(self.dataset, name, func, **kwargs)
+
+    def add_descriptor_set(self, name, desc):
+        desc = np.array(desc)
+        if desc.shape[0] == self.dataset.shape[0]:
+            self.descriptor.add_descriptor(name, desc)
+
+    def get_masks(self):
+        return self._masks
+
+    def get_mask(self, mask_name):
+        return self._masks[mask_name]
+
+    def get_masked_dataset(self, mask):
+        if mask in self._masks.keys():
+            mask = self._masks[mask]
+        return self.dataset.loc[mask]
+
+    def iter_masks(self):
+        for key, val in self._masks.items():
+            yield key, val
+
+    def add_mask(self, name, indices):
+        self._masks[name] = indices
+
+    def remove_mask(self, name):
+        if name in self._masks.keys():
+            del self._masks[name]
 
 
-class QSARDataset:
+class ScreeningDataset(BaseDataset):
+    def __init__(self, filepath, delimiter=None, smiles_col=1, curation="default"):
+        super().__init__(filepath, delimiter, smiles_col)
+
+        self._curation = curation
+
+    def get_descriptor_set(self, name):
+        if name not in self.descriptor.get_available_descriptors():
+            self.calc_descriptor(name)
+        return np.array(self.descriptor.get_descriptor(name))
+
+
+class QSARDataset(BaseDataset):
     def __init__(self, filepath, delimiter=None, curation="default", label_col=-1, smiles_col=1, label="auto",
                  cutoff=None, unit_col=None, file_hash=None):
         """
@@ -118,37 +275,13 @@ class QSARDataset:
 
         """
 
-        self.stored_args = {"filepath": filepath, "delimiter": delimiter, "curation": curation,
-                            "label_col": label_col, "smiles_col": smiles_col, "label": label,
-                            "cutoff": cutoff, "unit_col": unit_col}
-
-        # TODO add support for mixtures splits
-
-        self.name = os.path.basename(filepath)
+        super().__init__(filepath, delimiter, smiles_col, file_hash)
+        self.stored_args.update({"curation": curation, "label_col": label_col, "label": label, "cutoff": cutoff,
+                                 "unit_col": unit_col})
 
         self._label = label
         self._labels = {}
         self._curation = curation
-
-        self._failed = {}
-
-        self.descriptor = DescriptorCalculator(cache=True)
-
-        self._masks = {}
-
-        with open(filepath, 'rb') as f:
-            s = f.read()
-            f.close()
-        self.file_hash = hashlib.sha256(s).hexdigest()
-
-        if file_hash and file_hash != self.file_hash:
-            raise Exception(f"File contents (sha256 hash) for {filepath} have changed! set check_file_contents to "
-                            f"false to override")
-
-        self._models = {}
-        self._cv = {}
-
-        self._random_state = np.random.randint(1e8)
 
         self._binary_cutoff = None
         self._multiclass_cutoff = None
@@ -166,32 +299,8 @@ class QSARDataset:
         ### LOAD IN THE DATA AND GET LABELS AND RDKIT MOLS ###
         # TODO add the ability to read in lists of files and mol file support
 
-        self.filepath = filepath.strip()
-
-        try:
-            tail = self.filepath.split(".")[1]
-        except IndexError:
-            raise ValueError("file type not defined please specify file type (.sdf, .csv, .tab, etc...)")
-
-        if tail.lower() == "sdf":
-            df = LoadSDF(filepath)
-
-        else:
-            if delimiter is not None:
-                if tail == ".csv":
-                    delimiter = ","
-                if tail == ".tab":
-                    delimiter = "\t"
-                if tail == ".txt":
-                    delimiter = " "
-            df = pd.read_csv(filepath, delimiter=delimiter)
-
-        # note dataset will always be indexed from 0 ... n if it is not we have a problem
-        self.dataset = df
-
         ### COVERT COLUMN INDEX TO COLUMN NAMES AND CHECK###
         self._label_col = self._get_column_name(label_col)
-        self._smiles_col = self._get_column_name(smiles_col)
         self._unit_col = self._get_column_name(unit_col)
 
         # TODO lol the above wont work if a list of columns is passed, need to get the get_column_name to handle that
@@ -247,32 +356,6 @@ class QSARDataset:
         else:
             self._labels[self._label] = self.dataset[self._label_col].astype(int)
 
-        ### make an ROMol column if not already present ###
-        if "ROMol" not in self.dataset.columns:
-            # TODO someday add support for inchi code and SELFIES to be the default too, not just smiles
-            if self._smiles_col is not None:
-                try:
-                    self.dataset["ROMol"] = self.dataset[self._smiles_col].apply(
-                        Chem.MolFromSmiles
-                    )
-                except TypeError:
-                    raise ValueError(
-                        f"failed to parse smiles_col at index location {self._smiles_col} verify "
-                        f"that this column contains valid smile strings"
-                    )
-            else:
-                raise ValueError(
-                    f"failed to recognize smiles_col of {smiles_col}. it is required when not using a sdf"
-                    f" file as input. if you dataset has Inchi keys or SELFIES, use the relevant qsar_util "
-                    f"functions to preprocess your dataset and add SMILES"
-                )
-
-        if self.dataset["ROMol"].isna().sum() > 0:
-            failed_indices = self.dataset['ROMol'].isna()
-
-            for x in self.dataset[failed_indices].index:
-                self._failed.setdefault(x, []).append("Failed to read into RDKit")
-
         if curation is None:
             pass
         else:
@@ -285,13 +368,6 @@ class QSARDataset:
             if self._unit_col is not None:
                 units = [unit_covert_dict[x[0]] for x in self.dataset[self._unit_col]]
                 self._labels[self._label] = self._labels[self._label] * units
-
-    def get_dataset(self):
-        """
-        takes the original dataset and drops failed indices (failed rdkit mols, missing labels, etc)
-        josh will always use this to access the dataframe and leave the original dataframe alone
-        """
-        return self.dataset.drop(index=self._failed.keys())
 
     def get_labels(self, kind):
         """
@@ -503,20 +579,6 @@ class QSARDataset:
 
         self.set_label(normalized_label_name, label)
 
-    def _get_column_name(self, index):
-        # TODO handle if index is a list of column names or indices
-        if index is not None:
-            if isinstance(index, int):
-                if index < len(self.dataset.columns):
-                    return self.dataset.columns[index]
-            elif isinstance(index, str):
-                if index in list(self.dataset.columns):
-                    return index
-        return None
-
-    def _get_column_names(self, indexes):
-        return [self._get_column_name(idx) for idx in indexes]
-
     def to_dict(self):
         return {"Arguments": self.stored_args,
                 "Name": self.name,
@@ -525,61 +587,6 @@ class QSARDataset:
                 "SMILES Column": self._smiles_col,
                 "Label": self._label,
                 "File Hash": self.file_hash}
-
-    def get_masks(self):
-        return self._masks
-
-    def get_mask(self, mask_name):
-        return self._masks[mask_name]
-
-    def get_masked_dataset(self, mask):
-        if mask in self._masks.keys():
-            mask = self._masks[mask]
-        return self.dataset.loc[mask]
-
-    def iter_masks(self):
-        for key, val in self._masks.items():
-            yield key, val
-
-    def add_mask(self, name, indices):
-        self._masks[name] = indices
-
-    def remove_mask(self, name):
-        if name in self._masks.keys():
-            del self._masks[name]
-
-    def calc_descriptor(self, name):
-        func_call = "calc_" + str(name)
-        if self.descriptor.func_exists(name):
-            self.descriptor.__getattribute__(func_call)(self.dataset)
-        else:
-            raise AttributeError(f"cannot find function to calculate descriptor set {name}. can calculate "
-                                 f"{[_.replace('calc_', '') for _ in dir(self.descriptor) if 'calc_' in _ and callable(self.descriptor.__getattribute__(_))]}")
-
-    def merge_descriptors(self, descriptors):
-        name = []
-        desc_sets = []
-        desc_options = ()
-        if isinstance(descriptors, str):
-            descriptors = [descriptors]
-        for desc in descriptors:
-            if desc in self.descriptor.__dict__.keys():
-                name.append(desc)
-                desc_options = desc_options + (self.descriptor.__getattribute__(desc)[0])
-                desc_sets.append(self.descriptor.__getattribute__(desc)[1])
-
-        assert len(set([_.shape for _ in desc_sets])) <= 1
-        assert len(set([_.shape[0] for _ in desc_sets])) <= 1
-
-        self.add_descriptor_set("_".join(name), np.concatenate(desc_sets, axis=-1))
-
-    def calc_custom_descriptor(self, name, func, **kwargs):
-        self.descriptor.calc_custom_descriptor(self.dataset, name, func, **kwargs)
-
-    def add_descriptor_set(self, name, desc):
-        desc = np.array(desc)
-        if desc.shape[0] == self.dataset.shape[0]:
-            self.descriptor.add_descriptor(name, desc)
 
     def curate(self):
         from curate import curate_mol
