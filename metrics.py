@@ -59,7 +59,6 @@ def accuracy(y_true, y_pred):
     if np.array_equal(y_true, y_pred):
         return 1
 
-
     tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
     return (tn + tp) / (tp + tn + fp + fn)
 
@@ -101,6 +100,7 @@ def auc(y_true, y_pred):
     from sklearn.metrics import roc_auc_score
 
     return roc_auc_score(y_true, y_pred)
+
 
 def get_classification_metrics(y_true, y_pred):
     # TODO this should just return a list of metrics functions not a dict
