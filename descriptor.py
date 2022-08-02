@@ -166,6 +166,9 @@ class DescriptorCalculator:
         else:
             return mordred_desc
 
+    def add_custom_descriptor(self, name, func):
+        self.__setattr__(f"calc_{name}", func)
+
     def calc_custom_descriptor(self, df, name, func, **kwargs):
         desc = func(df, **kwargs)
         if self._cache:
@@ -207,6 +210,13 @@ class DescriptorCalculator:
         func_call = "calc_" + str(name)
         return func_call in dir(self) and callable(self.__getattribute__(func_call))
 
+    def get_descriptor_func(self, name):
+        if self.func_exists(name):
+            return self.__getattribute__("calc_" + name)
+        else:
+            raise ValueError(f"descriptor {name} does not exist")
+
+    # TODO these two below are not very good come back to them
     def get_descriptor_funcs(self):
         return [x.replace("calc_", "") for x in dir(self) if callable(self.__getattribute__(x) and "calc_" in x)]
 
