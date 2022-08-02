@@ -4,6 +4,7 @@ from rdkit import Chem
 from rdkit.Chem.PandasTools import LoadSDF
 from collections import Counter
 from descriptor import DescriptorCalculator
+from sampling import Sampler
 import hashlib
 import copy
 import os
@@ -129,6 +130,11 @@ class BaseDataset:
             raise AttributeError(f"cannot find function to calculate descriptor set {name}. can calculate "
                                  f"{[_.replace('calc_', '') for _ in dir(self.descriptor) if 'calc_' in _ and callable(self.descriptor.__getattribute__(_))]}")
 
+    def get_descriptor(self, name):
+        if name not in self.descriptor.get_available_descriptors():
+            self.calc_descriptor(name)
+        return np.delete(self.descriptor.get_descriptor(name), self._failed.keys(), axis=0)
+
     def merge_descriptors(self, descriptors):
         name = []
         desc_sets = []
@@ -193,50 +199,6 @@ class QSARDataset(BaseDataset):
     def __init__(self, filepath, delimiter=None, curation="default", label_col=-1, smiles_col=1, label="auto",
                  cutoff=None, unit_col=None, file_hash=None):
         """
-        base dataset object that will handle curation and process of molecular datasets. dataset objects can handle
-        the following actions to process your dataset:
-            - Generating rdkit molecule objects for your chemicals
-            - Curation and standardization of your chemicals
-            - Standardization and conversion of a continuous label to a classification label based on a cutoff
-            - Generating any of the descriptors for your datasets
-            - Balancing your datasets in a number of different methods
-
-        dataset should contain some description of the molecule (.sdf or smiles) and a label for each chemical
-        the label can be continuous, binary or multiclass. If not told explicitly the program will attempt to infer
-        the label, but this could result in incorrect assessment so optimal behavior would be to directly set this
-
-        the dataset can be curated to standardize chemicals and remove mixture and duplicates using the CHEMBL curation
-        pipeline. Additionally, you can pass a custom curation function that takes in a list of rdkit mols and
-        returns a curated list of rdkit mols. You can find guidelines for this function in the curation documentation
-
-        If the label is continuous, and you want to move to a binary label or multiclass label, you can set desired
-        label to either binary or multiclass. In this case you can also pass a cutoff, which for binary should be a
-        single float, and multiclass a list of floats. If no cutoff is directly set the program will default to "auto"
-        mode and pick a cutoff that makes each class have as equal weight as possible in the dataset. Binary and
-        multiclass labels can be created later as well, using the .to_binary() and to_multiclass() functions. Note that
-        the initial continuous label will not be removed or deleted but stored incase it needs to be referenced again.
-        when creating multiclass or binary labels, if new ones are created the previous will be overwritten. If multiple
-        binary cutoffs for a give dataset are required clone the dataset object and give each clone a different cutoff.
-        when modeling you can set the active label to use by the dataset by using the set_active_label() function. you
-        can reference what it is using the get_active_label() function. By default, the active label will change to the
-        last time of label generated, of the initial label if no new label is ever created. You cannot create a binary
-        or multiclass label if the original dataset never contained a continuous label, as there is no way to make such
-        a conversion.
-
-        You create descriptors for your dataset by calling the relevant descriptor set name on the dataset. for example,
-        dataset.rdkit(). You can also pass the generation parameters if they exist. for example dataset.morgan(3, 1024)
-        get you the morgan fingerprints of radius 3 nbits 1024. You can reference the descriptor documentation for
-        possible descriptors and their arguments. Once generated, descriptors will be cached, so they will only need to
-        be generated once for a given argument setting. If you make the same call to the same descriptor set again it
-        will reference this cache to save time.
-
-        children of the dataset set can be created as well with the make_child() function. when passed a name and list
-        of dataset index it will save a subset of the dataset with only those entries. Children can be reference by
-        calling their name on the dataset, like dataset.child1. Child names can not contain any whitespace chars
-
-        balancing of the dataset can also be done in a various ways. Balancing will not alter the dataset in any way,
-        rather make a child of the dataset named after the balancing method, unless told not to do this
-
         Parameters
         ---------------------
             filepath: (str)
@@ -286,6 +248,8 @@ class QSARDataset(BaseDataset):
         self._binary_cutoff = None
         self._multiclass_cutoff = None
 
+        self.sampler = Sampler(cache=True)
+
         ### HANDLE LABEL CLASSIFICATION ###
         if label not in ["auto", "binary", "multiclass", "continuous"]:
             raise ValueError(f"QSARDataset must have label set to 'auto', 'binary', 'multiclass' or 'continuous', "
@@ -295,9 +259,6 @@ class QSARDataset(BaseDataset):
         if curation not in ["default", None] and not callable(curation):
             raise ValueError(f'QSARDataset must have curation set to None or "default" or be a valid curation function '
                              f'was set to {curation}')
-
-        ### LOAD IN THE DATA AND GET LABELS AND RDKIT MOLS ###
-        # TODO add the ability to read in lists of files and mol file support
 
         ### COVERT COLUMN INDEX TO COLUMN NAMES AND CHECK###
         self._label_col = self._get_column_name(label_col)
@@ -606,6 +567,9 @@ class QSARDataset(BaseDataset):
         self.dataset["Curation modified structure"] = modified
         self.dataset["Curated ROMol"] = curated_mols
 
-    def balance(self, method="downsample"):
-        raise NotImplemented
-        # TODO implement function
+    def balance(self, method="downsample", descriptor="morgan", label="binary"):
+        if method in dir(self.sampler) and callable(self.sampler.__getattribute__(method)):
+            self.add_mask("_".join([method, descriptor, label]),
+                          self.sampler.__getattribute__(method)(self.get_descriptor(descriptor), self.get_labels(label)))
+        else:
+            raise ValueError("balancing/sampling method does not exist")
