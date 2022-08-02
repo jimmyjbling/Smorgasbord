@@ -4,6 +4,8 @@ import mordred
 import yaml
 from dataset import QSARDataset
 from descriptor import DescriptorCalculator
+from sampling import Sampler
+from procedure import Procedure
 
 
 class Plate:
@@ -40,6 +42,14 @@ class Plate:
         for d in self.datasets:
             if d.descriptor.func_exists(name):
                 func = d.descriptor.get_descriptor_func(name)
+                break
+        return func
+
+    def _find_sample_func(self, name):
+        func = None
+        for d in self.datasets:
+            if d.sampler.func_exists(name):
+                func = d.sampler.get_sampling_func(name)
                 break
         return func
 
@@ -83,8 +93,19 @@ class Plate:
                 raise ValueError(f"Descriptor function {descriptor_name} does not exist for "
                                  f"all currently loaded datasets")
 
-    def add_sampling_method(self, sampling_method):
-        raise NotImplementedError
+    def add_sampling_method(self, sampling_method, sampling_func):
+        if all([d.sampler.func_exists(sampling_method) for d in self.datasets]):
+            self.sampling_methods.append(sampling_method)
+        else:
+            # check if you can find a matching descriptor set in any of the dataset and if so use that
+            if sampling_func is None:
+                sampling_func = self._find_sample_func(sampling_method)
+
+            if sampling_func is not None:
+                [d.sampler.add_custom_sampling_func(sampling_method, sampling_func) for d in self.datasets]
+            else:
+                raise ValueError(f"Descriptor function {sampling_method} does not exist for "
+                                 f"all currently loaded datasets")
 
     def add_procedures(self, procedure):
         raise NotImplementedError

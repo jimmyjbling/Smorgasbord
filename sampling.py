@@ -32,3 +32,16 @@ class Sampler:
         X_res, y_res = sm.fit_resample(X, y)
 
         return X_res, y_res
+
+    def add_custom_sampling_func(self, name, func):
+        self.__setattr__(str(name), func)
+
+    def func_exists(self, name):
+        func_call = "calc_" + str(name)
+        return func_call in dir(self) and callable(self.__getattribute__(func_call))
+
+    def get_sampling_func(self, name):
+        if self.func_exists(name):
+            return self.__getattribute__("calc_" + name)
+        else:
+            raise ValueError(f"sampling function {name} does not exist")
