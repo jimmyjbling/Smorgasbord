@@ -1,21 +1,12 @@
-class BaseProcedure:
+class Procedure:
     def __init__(self):
         pass
 
-    def run(self):
+    def screen(self, model, screening_df):
         pass
 
+    def train(self, model, training_df):
+        pass
 
-class Screen(BaseProcedure):
-    def __init__(self):
-        super().__init__()
-
-
-class Train(BaseProcedure):
-    def __init__(self):
-        super().__init__()
-
-
-class CrossValidate(BaseProcedure):
-    def __init__(self):
-        super().__init__()
+    def cross_validate(self, model, training_df, cv=None):
+        pass
