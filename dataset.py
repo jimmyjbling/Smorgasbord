@@ -130,10 +130,12 @@ class BaseDataset:
             raise AttributeError(f"cannot find function to calculate descriptor set {name}. can calculate "
                                  f"{[_.replace('calc_', '') for _ in dir(self.descriptor) if 'calc_' in _ and callable(self.descriptor.__getattribute__(_))]}")
 
-    def get_descriptor(self, name):
-        if name not in self.descriptor.get_available_descriptors():
-            self.calc_descriptor(name)
-        return np.delete(self.descriptor.get_descriptor(name), self._failed.keys(), axis=0)
+    def get_descriptor(self, desc_name, mask_name=None):
+        if desc_name not in self.descriptor.get_available_descriptors():
+            self.calc_descriptor(desc_name)
+
+        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
+        return np.delete(self.descriptor.get_descriptor(desc_name), mask, axis=0)
 
     def merge_descriptors(self, descriptors):
         name = []
@@ -163,13 +165,16 @@ class BaseDataset:
     def get_masks(self):
         return self._masks
 
+    def get_mask_names(self):
+        return self._masks.keys()
+
     def get_mask(self, mask_name):
         return self._masks[mask_name]
 
-    def get_masked_dataset(self, mask):
-        if mask in self._masks.keys():
-            mask = self._masks[mask]
-        return self.dataset.loc[mask]
+    def get_masked_dataset(self, mask_name):
+        if mask_name in self._masks.keys():
+            mask_name = self._masks[mask_name]
+        return self.dataset.loc[mask_name]
 
     def iter_masks(self):
         for key, val in self._masks.items():
@@ -181,6 +186,12 @@ class BaseDataset:
     def remove_mask(self, name):
         if name in self._masks.keys():
             del self._masks[name]
+
+    def _union_failed_mask(self, mask_name):
+        return list(set(list(self.get_mask(mask_name)) + list(self._failed.keys())))
+
+    def get_masked_descriptors(self, descriptor_name, mask_name):
+        return self.get_descriptor(descriptor_name, mask_name)
 
 
 class ScreeningDataset(BaseDataset):
