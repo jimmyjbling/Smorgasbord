@@ -355,3 +355,35 @@ def get_finger_bit_substructure(mol, bit, nbits=2048, radius=3, chiral=False):
         sub_mols.append(sub_mol)
 
     return sub_mol_smarts, sub_mols
+
+
+def smote(X, y):
+    """
+    Implement the SMOTE method to balance your dataset. This method of balancing is not compatible with plates
+
+    SMOTE and variations of it will create new artificial data in an attempt to augment a dataset. This data
+    will then lack a real chemical structure that associated with it (creates new descriptors not new smiles).
+    The entire point of Smorgasbord and the plate approach is that the data has known chemicals behind them.
+    Since SMOTE violates this it cannot be used inside the vanilla plate workflow and can only be used in manual
+    workflow processes. It is unadvised to use it for chemical data for that aforementioned reasons
+
+    Parameters
+    ----------
+        X: array-like 2D
+            array of data to sample from
+        y: array-like 1D
+            array of labels for given data to determine what to sample from
+
+    Returns
+    ----------
+        X: array-like 2D
+            array of resampled data
+        y: array-like 1D
+            array of resembled labels
+    """
+    from imblearn.over_sampling import SMOTE
+
+    sm = SMOTE(random_state=42)
+    X_res, y_res = sm.fit_resample(X, y)
+
+    return X_res, y_res
