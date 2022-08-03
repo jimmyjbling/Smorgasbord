@@ -43,9 +43,6 @@ class BaseDataset:
         self._smiles_col = smiles_col
         self._failed = {}  # hold index of entries that failed to load or process
 
-        # sampling mask dictionary
-        self._masks = {}
-
     def _generate_rdkit_mols(self):
         if "ROMol" not in self.dataset.columns:
             if self._smiles_col is not None:
@@ -163,36 +160,6 @@ class BaseDataset:
             self.descriptor.add_descriptor(name, desc)
 
     #### TODO move all these masking functions to sampling class and treat it like the descriptor class
-    def get_masks(self):
-        return self._masks
-
-    def get_mask_names(self):
-        return self._masks.keys()
-
-    def get_mask(self, mask_name):
-        return self._masks[mask_name]
-
-    def get_masked_dataset(self, mask_name):
-        if mask_name in self._masks.keys():
-            mask_name = self._masks[mask_name]
-        return self.dataset.loc[mask_name]
-
-    def iter_masks(self):
-        for key, val in self._masks.items():
-            yield key, val
-
-    def add_mask(self, name, indices):
-        self._masks[name] = indices
-
-    def remove_mask(self, name):
-        if name in self._masks.keys():
-            del self._masks[name]
-
-    def _union_failed_mask(self, mask_name):
-        return list(set(list(self.get_mask(mask_name)) + list(self._failed.keys())))
-
-    def get_masked_descriptors(self, descriptor_name, mask_name):
-        return self.get_descriptor(descriptor_name, mask_name)
 
 
 class ScreeningDataset(BaseDataset):
@@ -260,6 +227,7 @@ class QSARDataset(BaseDataset):
         self._binary_cutoff = None
         self._multiclass_cutoff = None
 
+        # sampling mask dictionary
         self.sampler = Sampler(cache=True)
 
         ### HANDLE LABEL CLASSIFICATION ###
@@ -579,9 +547,21 @@ class QSARDataset(BaseDataset):
         self.dataset["Curation modified structure"] = modified
         self.dataset["Curated ROMol"] = curated_mols
 
-    def balance(self, method="downsample", descriptor="morgan", label="binary"):
+    def balance(self, method="downsample", label="binary"):
         if method in dir(self.sampler) and callable(self.sampler.__getattribute__(method)):
-            self.add_mask("_".join([method, descriptor, label]),
-                          self.sampler.__getattribute__(method)(self.get_descriptor(descriptor), self.get_labels(label)))
+            self.create_mask(method, self.get_labels(label))
         else:
             raise ValueError("balancing/sampling method does not exist")
+
+    def _union_failed_mask(self, mask_name):
+        return list(set(list(self.get_mask(mask_name)) + list(self._failed.keys())))
+
+    def get_mask(self, name):
+        return self.sampler.get_mask(name)
+
+    def create_mask(self, name, label):
+        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(label))
+
+    def create_custom_mask(self, name, label, func):
+        self.sampler.__setattr__(name, func)
+        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(label))
