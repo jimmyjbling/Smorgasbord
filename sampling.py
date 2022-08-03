@@ -3,35 +3,33 @@ class Sampler:
         self._random_state = random_state
         self._cache = cache
 
-    def undersample(self, X, y):
+    def undersample(self, X, y, return_mask=False):
         from imblearn.under_sampling import RandomUnderSampler
 
-        ros = RandomUnderSampler(random_state=self._random_state)
-        X_res, y_res = ros.fit_resample(X, y)
+        rus = RandomUnderSampler(random_state=self._random_state)
+        X_res, y_res = rus.fit_resample(X, y)
 
-        return X_res, y_res
+        if return_mask:
+            return rus.sample_indices_
+        else:
+            return X_res, y_res
 
-    def oversample(self, X, y):
+    def oversample(self, X, y, return_mask=False):
         from imblearn.over_sampling import RandomOverSampler
 
         ros = RandomOverSampler(random_state=self._random_state)
         X_res, y_res = ros.fit_resample(X, y)
 
-        return X_res, y_res
+        if return_mask:
+            return ros.sample_indices_
+        else:
+            return X_res, y_res
 
-    def remove_most_similar(self, X, y):
+    def remove_most_similar(self, X, y, return_mask=False):
         raise NotImplementedError
 
-    def remove_least_similar(self, X, y):
+    def remove_least_similar(self, X, y, return_mask=False):
         raise NotImplementedError
-
-    def smote(self, X, y):
-        from imblearn.over_sampling import SMOTE
-
-        sm = SMOTE(random_state=self._random_state)
-        X_res, y_res = sm.fit_resample(X, y)
-
-        return X_res, y_res
 
     def add_custom_sampling_func(self, name, func):
         self.__setattr__(str(name), func)
@@ -45,3 +43,28 @@ class Sampler:
             return self.__getattribute__("calc_" + name)
         else:
             raise ValueError(f"sampling function {name} does not exist")
+
+    # def get_masks(self):
+    #     return self._masks
+    #
+    # def get_mask_names(self):
+    #     return self._masks.keys()
+    #
+    # def get_mask(self, mask_name):
+    #     return self._masks[mask_name]
+    #
+    # def get_masked_dataset(self, mask_name):
+    #     if mask_name in self._masks.keys():
+    #         mask_name = self._masks[mask_name]
+    #     return self.dataset.loc[mask_name]
+    #
+    # def iter_masks(self):
+    #     for key, val in self._masks.items():
+    #         yield key, val
+    #
+    # def add_mask(self, name, indices):
+    #     self._masks[name] = indices
+    #
+    # def remove_mask(self, name):
+    #     if name in self._masks.keys():
+    #         del self._masks[name]

@@ -162,6 +162,7 @@ class BaseDataset:
         if desc.shape[0] == self.dataset.shape[0]:
             self.descriptor.add_descriptor(name, desc)
 
+    #### TODO move all these masking functions to sampling class and treat it like the descriptor class
     def get_masks(self):
         return self._masks
 
