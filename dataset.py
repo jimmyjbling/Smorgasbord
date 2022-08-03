@@ -130,9 +130,7 @@ class BaseDataset:
     def get_descriptor(self, desc_name, mask_name=None):
         if desc_name not in self.descriptor.get_available_descriptors():
             self.calc_descriptor(desc_name)
-
-        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
-        return np.delete(self.descriptor.get_descriptor(desc_name), mask, axis=0)
+        return np.delete(self.descriptor.get_descriptor(desc_name), self._failed.keys(), axis=0)
 
     def merge_descriptors(self, descriptors):
         name = []
@@ -158,8 +156,6 @@ class BaseDataset:
         desc = np.array(desc)
         if desc.shape[0] == self.dataset.shape[0]:
             self.descriptor.add_descriptor(name, desc)
-
-    #### TODO move all these masking functions to sampling class and treat it like the descriptor class
 
 
 class ScreeningDataset(BaseDataset):
@@ -309,6 +305,21 @@ class QSARDataset(BaseDataset):
             if self._unit_col is not None:
                 units = [unit_covert_dict[x[0]] for x in self.dataset[self._unit_col]]
                 self._labels[self._label] = self._labels[self._label] * units
+
+    def get_dataset(self, mask_name=None):
+        """
+        takes the original dataset and drops failed indices (failed rdkit mols, missing labels, etc)
+        josh will always use this to access the dataframe and leave the original dataframe alone
+        """
+        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
+        return self.dataset.drop(index=mask)
+
+    def get_descriptor(self, desc_name, mask_name=None):
+        if desc_name not in self.descriptor.get_available_descriptors():
+            self.calc_descriptor(desc_name)
+
+        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
+        return np.delete(self.descriptor.get_descriptor(desc_name), mask, axis=0)
 
     def get_labels(self, kind):
         """
