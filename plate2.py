@@ -1,11 +1,10 @@
 import os
-
-import mordred
 import yaml
 from dataset import QSARDataset
 from descriptor import DescriptorCalculator
 from sampling import Sampler
 from procedure import Procedure
+from itertools import product
 
 
 class Plate:
@@ -17,7 +16,7 @@ class Plate:
         self.sampling_methods = []
         self.procedures = []
 
-        self.descriptor_calc = DescriptorCalculator(cache=False)
+        self.procedure = Procedure()
 
         if datasets is not None: [self.add_dataset(dataset) for dataset in self._check_list(datasets)]
         if models is not None: [self.add_model(model) for model in self._check_list(models)]
@@ -93,7 +92,7 @@ class Plate:
                 raise ValueError(f"Descriptor function {descriptor_name} does not exist for "
                                  f"all currently loaded datasets")
 
-    def add_sampling_method(self, sampling_method, sampling_func):
+    def add_sampling_method(self, sampling_method, sampling_func=None):
         if all([d.sampler.func_exists(sampling_method) for d in self.datasets]):
             self.sampling_methods.append(sampling_method)
         else:
@@ -107,8 +106,49 @@ class Plate:
                 raise ValueError(f"Descriptor function {sampling_method} does not exist for "
                                  f"all currently loaded datasets")
 
-    def add_procedures(self, procedure):
-        raise NotImplementedError
+    def add_procedures(self, procedure, **kwargs):
+        if procedure in dir(self.procedure) and callable(self.procedure.__getattribute__(procedure)):
+            self.procedures.append(self.procedure.__getattribute__(procedure))
+        else:
+            raise ValueError(f"Procedure {procedure} does not exist")
+
+    def set_dataset_label(self, label_class):
+        if all([label_class in d.get_existing_labels() for d in self.datasets]):
+            for d in self.datasets:
+                d.set_active_label(label_class)
+        else:
+            raise ValueError(f"Datasets on plate do not all have label of type {label_class}")
+
+    def generate_binary_labels(self, cutoff, class_names=None):
+        for d in self.datasets:
+            d.to_binary(cutoff, class_names)
+
+    def _make_combos(self):
+        datasets = self.datasets if len(self.datasets) > 0 else [None]
+        models = self.models if len(self.models) > 0 else [None]
+        descriptor_functions = self.descriptor_functions if len(self.descriptor_functions) > 0 else [None]
+        sampling_methods = self.sampling_methods if len(self.sampling_methods) > 0 else [None]
+        procedures = self.procedures if len(self.procedures) > 0 else [None]
+
+        return product(datasets, models, descriptor_functions, sampling_methods, procedures)
+
+    def run(self):
+        from tqdm import tqdm
+        # calculate descriptors for every dataset first
+        for dataset, desc_func in tqdm(product(self.datasets, self.descriptor_functions)):
+            dataset.calc_descriptor(desc_func)
+
+        # calculate sampling masks for everyone next
+        for dataset, samp_func in tqdm(product(self.datasets, self.sampling_methods)):
+            dataset.balance(samp_func)
+
+        # now run all the procedures
+        combos = self._make_combos()
+
+        for dataset, model, desc_func, samp_func, proc in tqdm(combos):
+            y = dataset.get_label(mask_name=samp_func)
+            X = dataset.get_descriptor(desc_func, mask_name=samp_func)
+            proc(moodel=model)
 
     def to_yaml(self, filename):
         from datetime import datetime
@@ -138,8 +178,6 @@ class Plate:
             f.close()
 
     def from_yaml(self, filename, check_file_contents=True):
-        from dataset import QSARDataset
-
         with open(filename, 'r') as f:
             d = yaml.load(f, Loader=yaml.Loader)
             f.close()
@@ -154,9 +192,3 @@ class Plate:
                 self.datasets.append(QSARDataset(file_hash=dataset_dict["File Hash"], **args))
             else:
                 self.datasets.append(QSARDataset(**args))
-
-    def _make_combos(self):
-        raise NotImplementedError
-
-    def run(self):
-        raise NotImplementedError

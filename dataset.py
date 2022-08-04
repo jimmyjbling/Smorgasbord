@@ -216,7 +216,7 @@ class QSARDataset(BaseDataset):
         self.stored_args.update({"curation": curation, "label_col": label_col, "label": label, "cutoff": cutoff,
                                  "unit_col": unit_col})
 
-        self._label = label
+        self._active_label = label
         self._labels = {}
         self._curation = curation
 
@@ -249,7 +249,7 @@ class QSARDataset(BaseDataset):
 
         # TODO add support for multi label datasets
 
-        if self._label == "auto":
+        if self._active_label == "auto":
             _labels = self.dataset[self._label_col].to_list()
             try:
                 _labels = list(map(float, _labels))
@@ -275,7 +275,7 @@ class QSARDataset(BaseDataset):
                 else:
                     guess_initial_label_class = "binary"
 
-            self._label = guess_initial_label_class
+            self._active_label = guess_initial_label_class
 
         for i, label in zip(self.dataset.index, self.dataset[self._label_col]):
             try:
@@ -287,24 +287,24 @@ class QSARDataset(BaseDataset):
         if self.dataset[self._label_col].isnull().all():
             raise ValueError("All labels corrupted. If labels are non-numeric convert to numeric with data_utils func")
 
-        # save the initial labels to the dictionary
-        if self._label == "continuous":
-            self._labels[self._label] = self.dataset[self._label_col].astype(float)
+        # save the initial label to the dictionary
+        if self._active_label == "continuous":
+            self._labels[self._active_label] = self.dataset[self._label_col].astype(float)
         else:
-            self._labels[self._label] = self.dataset[self._label_col].astype(int)
+            self._labels[self._active_label] = self.dataset[self._label_col].astype(int)
+
+        ### The following only needs to occur is the data is currently continuous
+        if self._active_label == "continuous":
+
+            ### Convert units ###
+            if self._unit_col is not None:
+                units = [unit_covert_dict[x[0]] for x in self.dataset[self._unit_col]]
+                self._labels[self._active_label] = self._labels[self._active_label] * units
 
         if curation is None:
             pass
         else:
             self.curate()
-
-        ### The following only needs to occur is the data is currently continuous
-        if self._label == "continuous":
-
-            ### Convert units ###
-            if self._unit_col is not None:
-                units = [unit_covert_dict[x[0]] for x in self.dataset[self._unit_col]]
-                self._labels[self._label] = self._labels[self._label] * units
 
     def get_dataset(self, mask_name=None):
         """
@@ -321,6 +321,12 @@ class QSARDataset(BaseDataset):
         mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
         return np.delete(self.descriptor.get_descriptor(desc_name), mask, axis=0)
 
+    def get_label(self, mask_name=None):
+        if mask_name not in self.sampler.get_available_masks():
+            self.create_mask(mask_name)
+        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
+        return np.delete(self.get_labels(self._active_label), mask, axis=0)
+
     def get_labels(self, kind):
         """
         takes the private _labels and drops failed indices (failed rdkit mols, missing labels, etc)
@@ -336,15 +342,22 @@ class QSARDataset(BaseDataset):
         return np.array(self._labels[kind].drop(index=self._failed.keys()), dtype=dtype)
 
     def add_label(self, name, label):
-        if name in self._labels.keys():
-            raise ValueError(f"label {name} already exists, use set_label to override")
-        self.set_label(name, label)
-
-    def set_label(self, name, label):
         label = np.array(label)
         if label.shape[0] != self.dataset.shape[0] or len(label.shape) > 2:
             raise ValueError(f"label is malformed got shape {label.shape} excepted ({self.dataset.shape[0]}, 1)")
         self._labels[name] = label
+
+    def set_active_label(self, label_name):
+        if label_name in self.get_existing_labels():
+            self._active_label = label_name
+        else:
+            raise ValueError(f"label {label_name} does not exist")
+
+    def set_active_label_to_binary(self):
+        if self.has_binary_label():
+            self._active_label = "binary"
+        else:
+            raise ValueError("binary label does not exist for dataset")
 
     def get_existing_labels(self):
         return list(self._labels.keys())
@@ -397,10 +410,10 @@ class QSARDataset(BaseDataset):
             # TODO make the object clone able and return the new dataset object with just this label
         self._labels["binary"] = self._split_data(cutoff=cutoff, class_names=class_names)
 
-    def set_binary_label(self, label):
+    def add_binary_label(self, label):
         if len(set(label)) != 2:
             raise ValueError(f"binary label not binary. got {len(set(label))} unique classes expected 2")
-        self.set_label("binary", label)
+        self.add_label("binary", label)
 
     def get_binary_label(self):
         if "binary" in self._labels.keys():
@@ -466,7 +479,7 @@ class QSARDataset(BaseDataset):
         self._labels["multiclass"] = self._split_data(cutoff=cutoff, class_names=class_names)
 
     def set_multiclass_label(self, label):
-        self.set_label("multiclass", label)
+        self.set_active_label("multiclass", label)
 
     def get_multiclass_label(self):
         if "multiclass" in self._labels.keys():
@@ -517,7 +530,7 @@ class QSARDataset(BaseDataset):
 
         label = np.array(label) * scale_factor
 
-        self.set_label(scaled_label_name, label)
+        self.set_active_label(scaled_label_name, label)
 
     def normalize_label(self, label):
         normalized_label_name = f"normalized"
@@ -529,7 +542,7 @@ class QSARDataset(BaseDataset):
 
         label = np.array(label) / max(label)
 
-        self.set_label(normalized_label_name, label)
+        self.set_active_label(normalized_label_name, label)
 
     def to_dict(self):
         return {"Arguments": self.stored_args,
@@ -537,7 +550,7 @@ class QSARDataset(BaseDataset):
                 "Filepath": self.filepath,
                 "Label Column": self._label_col,
                 "SMILES Column": self._smiles_col,
-                "Label": self._label,
+                "Label": self._active_label,
                 "File Hash": self.file_hash}
 
     def curate(self):
@@ -558,9 +571,9 @@ class QSARDataset(BaseDataset):
         self.dataset["Curation modified structure"] = modified
         self.dataset["Curated ROMol"] = curated_mols
 
-    def balance(self, method="downsample", label="binary"):
+    def balance(self, method="downsample"):
         if method in dir(self.sampler) and callable(self.sampler.__getattribute__(method)):
-            self.create_mask(method, self.get_labels(label))
+            self.create_mask(method)
         else:
             raise ValueError("balancing/sampling method does not exist")
 
@@ -570,9 +583,9 @@ class QSARDataset(BaseDataset):
     def get_mask(self, name):
         return self.sampler.get_mask(name)
 
-    def create_mask(self, name, label):
-        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(label))
+    def create_mask(self, name):
+        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(self._active_label))
 
-    def create_custom_mask(self, name, label, func):
+    def create_custom_mask(self, name, func):
         self.sampler.__setattr__(name, func)
-        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(label))
+        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(self._active_label))
