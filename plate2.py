@@ -14,7 +14,7 @@ class Plate:
     def __init__(self, datasets=None, models=None, descriptor_functions=None, sampling_methods=None, procedures=None,
                  metrics=None, save_models=False, generate_report=False, output_dir=None):
 
-        self.metric=metrics
+        self.metrics = metrics
 
         self._save_models = save_models
         self._generate_reports = generate_report
@@ -26,7 +26,7 @@ class Plate:
         self.sampling_methods = []
         self.procedures = []
 
-        self.procedure = Procedure()
+        self.procedure = Procedure(metrics=self.metrics)
 
         if datasets is not None: [self.add_dataset(dataset) for dataset in self._check_list(datasets)]
         if models is not None: [self.add_model(model) for model in self._check_list(models)]
@@ -146,8 +146,13 @@ class Plate:
 
         return product(datasets, models, descriptor_functions, sampling_methods, procedures)
 
+    def _check_metrics(self):
+        if not all([callable(m) for m in self.metrics]):
+            raise ValueError("Not all metrics are callable functions")
+
     def _check_labels(self):
-        raise NotImplementedError
+        if len(set([d.get_label().dtype for d in self.datasets])) > 1:
+            raise ValueError("Some labels are continuous and some are discrete")
 
     def _check_procedures(self):
         raise NotImplementedError

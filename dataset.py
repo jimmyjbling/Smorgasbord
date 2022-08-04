@@ -359,6 +359,9 @@ class QSARDataset(BaseDataset):
         else:
             raise ValueError("binary label does not exist for dataset")
 
+    def get_active_label(self):
+        return self._active_label
+
     def get_existing_labels(self):
         return list(self._labels.keys())
 
@@ -530,7 +533,7 @@ class QSARDataset(BaseDataset):
 
         label = np.array(label) * scale_factor
 
-        self.set_active_label(scaled_label_name, label)
+        self.add_label(scaled_label_name, label)
 
     def normalize_label(self, label):
         normalized_label_name = f"normalized"
@@ -542,7 +545,7 @@ class QSARDataset(BaseDataset):
 
         label = np.array(label) / max(label)
 
-        self.set_active_label(normalized_label_name, label)
+        self.add_label(normalized_label_name, label)
 
     def to_dict(self):
         return {"Arguments": self.stored_args,
