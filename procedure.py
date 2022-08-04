@@ -95,12 +95,12 @@ class Procedure:
     def eval(self, y_true, y_pred):
         if self.metrics is None:
             if y_true.dtype == int:
-                metrics = get_default_classification_metrics()
+                self.metrics = get_default_classification_metrics()
             else:
-                metrics = get_default_regression_metrics()
+                self.metrics = get_default_regression_metrics()
 
         if not isinstance(self.metrics, list):
-            metrics = [self.metrics]
+            self.metrics = [self.metrics]
         return {m.__name__: m(y_true, y_pred) for m in self.metrics}
 
     @staticmethod
