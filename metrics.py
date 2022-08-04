@@ -3,12 +3,24 @@ import numpy as np
 
 from sklearn.metrics import confusion_matrix
 
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+
+
+def threshold(y_pred, thresh=0.5):
+    return np.where(y_pred >= thresh, 1, 0)
+
 
 def confusion_mat(y_true, y_pred):
+
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
+
     return confusion_matrix(y_true=y_true, y_pred=y_pred)
 
 
 def ppv(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == 0:
@@ -19,6 +31,8 @@ def ppv(y_true, y_pred):
 
 
 def npv(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
@@ -31,6 +45,8 @@ def npv(y_true, y_pred):
 
 
 def sensitivity(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
@@ -43,6 +59,8 @@ def sensitivity(y_true, y_pred):
 
 
 def specificity(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
@@ -55,6 +73,8 @@ def specificity(y_true, y_pred):
 
 
 def accuracy(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         return 1
@@ -64,6 +84,8 @@ def accuracy(y_true, y_pred):
 
 
 def balanced_accuracy(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         return 1
@@ -73,6 +95,8 @@ def balanced_accuracy(y_true, y_pred):
 
 
 def f1(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         return 1
@@ -82,6 +106,8 @@ def f1(y_true, y_pred):
 
 
 def mcc(y_true, y_pred):
+    if y_pred.dtype == float:
+        y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
         return math.nan
@@ -102,7 +128,7 @@ def auc(y_true, y_pred):
     return roc_auc_score(y_true, y_pred)
 
 
-def get_default_predict_classification_metrics():
+def get_default_classification_metrics():
     return [
         ppv,
         npv,
@@ -111,15 +137,17 @@ def get_default_predict_classification_metrics():
         accuracy,
         balanced_accuracy,
         f1,
-        mcc
-    ]
-
-
-def get_default_predict_proba_classification_metrics():
-    return [
+        mcc,
         auc
     ]
 
+
+def get_default_regression_metrics():
+    return [
+        r2_score,
+        mean_squared_error,
+        mean_absolute_error
+    ]
 
 # def get_classification_metrics(y_true, y_pred):
 #

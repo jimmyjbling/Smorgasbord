@@ -1,18 +1,20 @@
-from metrics import get_classification_metrics
+from metrics import get_default_classification_metrics, get_default_regression_metrics
 
 
 class Procedure:
     def __init__(self, random_state=None):
         self._random_state = random_state
 
-    def screen(self, model, screening_dataset, descriptor_func, dataset=None, sampling_func=None, predict_prob=False):
+    def screen(self, model, screening_dataset, descriptor_func, dataset=None, sampling_func=None):
 
         screening_X = screening_dataset.get_descriptor(descriptor_func)
 
-        if predict_prob:
-            return model.predict_proba(screening_X)
+        if "predict_proba" in dir(model) and callable(model.__getattribute__("predict_proba")):
+            res = model.predict_proba(screening_X)
         else:
-            return model.predict(screening_X)
+            res = model.predict(screening_X)
+
+        return res
 
     def train(self, model, dataset, descriptor_func, sampling_func):
 
@@ -23,7 +25,7 @@ class Procedure:
 
         return {model: None}
 
-    def train_with_test(self, model, dataset, descriptor_func, sampling_func, predict_prob=False, cv=None, **kwargs):
+    def train_with_test(self, model, dataset, descriptor_func, sampling_func, cv=None, **kwargs):
 
         if cv is None:
             from sklearn.model_selection import StratifiedShuffleSplit
@@ -44,14 +46,15 @@ class Procedure:
         y_train, y_test = y[train_index], y[test_index]
 
         model.fit(X_train, y_train)
-        if predict_prob:
-            y_pred = model.predict_proba(X_test)
+
+        if "predict_proba" in dir(model) and callable(model.__getattribute__("predict_proba")):
+            res = model.predict_proba(X_test)
         else:
-            y_pred = model.predict(X_test)
+            res = model.predict(X_test)
 
-        return {model: (y_test, y_pred)}
+        return {model: (y_test, res)}
 
-    def cross_validate(self, model, dataset, descriptor_func, sampling_func, predict_prob=False, cv=None, **kwargs):
+    def cross_validate(self, model, dataset, descriptor_func, sampling_func, cv=None, **kwargs):
         from copy import deepcopy
         if cv is None:
             from sklearn.model_selection import StratifiedKFold
@@ -73,22 +76,23 @@ class Procedure:
             model_copy = deepcopy(model)
 
             model_copy.fit(X, y)
-            if predict_prob:
-                y_pred = model_copy.predict_proba(X_test)
-            else:
-                y_pred = model_copy.predict(X_test)
 
-            cv_models[model_copy] = (y_test, y_pred)
+            if "predict_proba" in dir(model) and callable(model.__getattribute__("predict_proba")):
+                res = model.predict_proba(X_test)
+            else:
+                res = model.predict(X_test)
+
+            cv_models[model_copy] = (y_test, res)
 
         return cv_models
 
     def eval(self, y_true, y_pred, metrics=None):
         if metrics is None:
             if y_true.dtype == int:
-                return get_classification_metrics(y_true, y_pred)
+                metrics = get_default_classification_metrics()
             else:
-                raise NotImplementedError("no continuous metrics yet")
-        else:
-            if not isinstance(metrics, list):
-                metrics = [metrics]
-            return {m.__name__: m(y_true, y_pred) for m in metrics}
+                metrics = get_default_regression_metrics()
+
+        if not isinstance(metrics, list):
+            metrics = [metrics]
+        return {m.__name__: m(y_true, y_pred) for m in metrics}
