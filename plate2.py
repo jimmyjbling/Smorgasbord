@@ -123,6 +123,9 @@ class Plate:
         else:
             raise ValueError(f"Procedure {procedure} does not exist")
 
+    def add_metric(self):
+        raise NotImplementedError
+
     def set_dataset_label(self, label_class):
         if all([label_class in d.get_existing_labels() for d in self.datasets]):
             for d in self.datasets:
@@ -142,6 +145,12 @@ class Plate:
         procedures = self.procedures if len(self.procedures) > 0 else [None]
 
         return product(datasets, models, descriptor_functions, sampling_methods, procedures)
+
+    def _check_labels(self):
+        raise NotImplementedError
+
+    def _check_procedures(self):
+        raise NotImplementedError
 
     def run(self):
         from tqdm import tqdm
@@ -199,3 +208,31 @@ class Plate:
                 self.datasets.append(QSARDataset(file_hash=dataset_dict["File Hash"], **args))
             else:
                 self.datasets.append(QSARDataset(**args))
+
+    @property
+    def save_models(self):
+        return self._save_models
+
+    @save_models.setter
+    def save_models(self, value):
+        self._save_models = value
+
+    @property
+    def generate_reports(self):
+        return self._generate_reports
+
+    @generate_reports.setter
+    def generate_reports(self, value):
+        self._generate_reports = value
+
+    @property
+    def output_dir(self):
+        return self._output_dir
+
+    @output_dir.setter
+    def output_dir(self, value):
+        self._output_dir = value
+
+    @output_dir.deleter
+    def output_dir(self):
+        self._output_dir = os.path.join(os.getcwd(), str(datetime.now()))
