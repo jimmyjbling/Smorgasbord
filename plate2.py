@@ -5,10 +5,18 @@ from descriptor import DescriptorCalculator
 from sampling import Sampler
 from procedure import Procedure
 from itertools import product
+from datetime import datetime
 
 
 class Plate:
-    def __init__(self, datasets=None, models=None, descriptor_functions=None, sampling_methods=None, procedures=None):
+    def __init__(self, datasets=None, models=None, descriptor_functions=None, sampling_methods=None, procedures=None,
+                 metrics=None, save_models=False, generate_report=False, output_dir=None):
+
+        self.metric=metrics
+
+        self._save_models = save_models
+        self._generate_reports = generate_report
+        self._output_dir = output_dir if output_dir is not None else os.path.join(os.getcwd(), str(datetime.now()))
 
         self.datasets = []
         self.models = []
@@ -146,13 +154,9 @@ class Plate:
         combos = self._make_combos()
 
         for dataset, model, desc_func, samp_func, proc in tqdm(combos):
-            y = dataset.get_label(mask_name=samp_func)
-            X = dataset.get_descriptor(desc_func, mask_name=samp_func)
-            proc(moodel=model)
+            res = proc(moodel=model, dataset=dataset, descriptor_func=desc_func, sampling_func=samp_func)
 
     def to_yaml(self, filename):
-        from datetime import datetime
-
         host_dict = os.uname()
         s = {
             "Datasets": [x.to_dict() for x in self.datasets],
