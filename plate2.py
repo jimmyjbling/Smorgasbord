@@ -1,11 +1,13 @@
 import os
 import yaml
+
+from datetime import datetime
+from itertools import product
+
 from dataset import QSARDataset
 from descriptor import DescriptorCalculator
 from sampling import Sampler
 from procedure import Procedure
-from itertools import product
-from datetime import datetime
 
 
 class Plate:
@@ -115,8 +117,9 @@ class Plate:
                                  f"all currently loaded datasets")
 
     def add_procedures(self, procedure, **kwargs):
+        from functools import partial
         if procedure in dir(self.procedure) and callable(self.procedure.__getattribute__(procedure)):
-            self.procedures.append(self.procedure.__getattribute__(procedure))
+            self.procedures.append(partial(self.procedure.__getattribute__(procedure), **kwargs))
         else:
             raise ValueError(f"Procedure {procedure} does not exist")
 
