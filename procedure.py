@@ -2,10 +2,11 @@ from metrics import get_default_classification_metrics, get_default_regression_m
 
 
 class Procedure:
-    def __init__(self, metrics=None, report=False, random_state=None):
+    def __init__(self, metrics=None, report=False, output_dir=None, random_state=None):
         self._random_state = random_state
         self.report = report
         self.metrics = metrics
+        self.output_dir = output_dir
 
     def screen(self, model, screening_dataset, descriptor_func, dataset=None, sampling_func=None):
 
@@ -16,7 +17,7 @@ class Procedure:
         else:
             res = model.predict(screening_X)
 
-        return res
+        return {screening_dataset.name: res}
 
     def train(self, model, dataset, descriptor_func, sampling_func):
 
@@ -56,6 +57,10 @@ class Procedure:
 
         res = self.eval(y_test, y_pred)
 
+        # TODO implement the report functions
+        if self.report:
+            pass
+
         return {model: (y_test, y_pred, res)}
 
     def cross_validate(self, model, dataset, descriptor_func, sampling_func, cv=None, **kwargs):
@@ -88,6 +93,10 @@ class Procedure:
 
             res = self.eval(y_test, y_pred)
 
+            # TODO implement report function
+            if self.report:
+                pass
+
             cv_models[model_copy] = (y_test, y_pred, res)
 
         return cv_models
@@ -103,6 +112,7 @@ class Procedure:
             self.metrics = [self.metrics]
         return {m.__name__: m(y_true, y_pred) for m in self.metrics}
 
+    # TODO I need to redo this to work with my new approach
     @staticmethod
     def classification_threshold_report(y_true, y_pred, filename, extra_data=None):
         from metrics import ppv, npv, accuracy, balanced_accuracy

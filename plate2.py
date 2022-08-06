@@ -3,8 +3,9 @@ import yaml
 
 from datetime import datetime
 from itertools import product
+from functools import partial
 
-from dataset import QSARDataset
+from dataset import QSARDataset, ScreeningDataset
 from descriptor import DescriptorCalculator
 from sampling import Sampler
 from procedure import Procedure
@@ -12,13 +13,15 @@ from procedure import Procedure
 
 class Plate:
     def __init__(self, datasets=None, models=None, descriptor_functions=None, sampling_methods=None, procedures=None,
-                 metrics=None, save_models=False, generate_report=False, output_dir=None):
+                 metrics=None, save_models=False, generate_report=False, output_dir=None, random_state=None):
 
+        self.overall_results = None
         self.metrics = metrics
 
         self._save_models = save_models
         self._generate_reports = generate_report
         self._output_dir = output_dir if output_dir is not None else os.path.join(os.getcwd(), str(datetime.now()))
+        self._random_state = random_state if random_state is not None else 42  # lol it is the answer
 
         self.datasets = []
         self.models = []
@@ -26,7 +29,8 @@ class Plate:
         self.sampling_methods = []
         self.procedures = []
 
-        self.procedure = Procedure(metrics=self.metrics)
+        self.procedure = Procedure(metrics=self.metrics, report=self._generate_reports,
+                                   output_dir=self._output_dir, random_state=self._random_state)
 
         if datasets is not None: [self.add_dataset(dataset) for dataset in self._check_list(datasets)]
         if models is not None: [self.add_model(model) for model in self._check_list(models)]
@@ -65,9 +69,7 @@ class Plate:
     def add_dataset(self, dataset):
         if isinstance(dataset, QSARDataset):
             # I added a check to see if a new dataset was compatible with the current descriptor sets
-            if all([dataset.descriptor.func_exists(func) for func in self.descriptor_functions]):
-                self.datasets.append(dataset)
-            else:
+            if not all([dataset.descriptor.func_exists(func) for func in self.descriptor_functions]):
                 # if it is not currently existing try to steal the func from another existing dataset
                 for func in self.descriptor_functions:
                     if not dataset.descriptor.func_exists(func):
@@ -76,12 +78,18 @@ class Plate:
                             dataset.descriptor.add_custom_descriptor(found_func)
                         else:
                             raise ValueError(f"new dataset object missing descriptor function {func}")
+            if hasattr(dataset, "random_state"):
+                dataset.__setattr__("random_state", self._random_state)
+            self.datasets.append(dataset)
         else:
             raise ValueError(f"dataset must be of type {type(QSARDataset)} not {type(dataset)}")
 
     def add_model(self, model):
         if "fit" in dir(model) and callable(model.__getattribute__("fit")):
             if "predict" in dir(model) and callable(model.__getattribute__("predict")):
+                # set the random state the plates if the model has a random state to set
+                if hasattr(model, "random_state"):
+                    model.__setattr__("random_state", self._random_state)
                 self.models.append(model)
             else:
                 raise ValueError(f"model object lacks a callable predict function")
@@ -117,8 +125,14 @@ class Plate:
                                  f"all currently loaded datasets")
 
     def add_procedures(self, procedure, **kwargs):
-        from functools import partial
         if procedure in dir(self.procedure) and callable(self.procedure.__getattribute__(procedure)):
+            # there has to be a better way to do this ask josh
+            if procedure == "screen":
+                if "screening_dataset" not in kwargs:
+                    raise ValueError("screen procedure require an additional keyword arg for screening_dataset")
+                elif not isinstance(kwargs["screening_dataset"], ScreeningDataset):
+                    raise ValueError(f"screening_dataset must of class ScreeningDataset found "
+                                     f"{type(kwargs['screening_dataset'])}")
             self.procedures.append(partial(self.procedure.__getattribute__(procedure), **kwargs))
         else:
             raise ValueError(f"Procedure {procedure} does not exist")
@@ -156,8 +170,20 @@ class Plate:
 
     def _check_procedures(self):
         raise NotImplementedError
+        # TODO check that all procedures are callable
 
-    def run(self):
+    def _check_models(self):
+        raise NotImplementedError
+        # TODO add in check for random state
+
+    def _check_datasets(self):
+        raise NotImplementedError
+        # TODO add in check for random state
+
+    def run(self, print_output=False):
+        # make sure plate and procedure agree
+        self.procedure.report = self._generate_reports
+
         from tqdm import tqdm
         # calculate descriptors for every dataset first
         for dataset, desc_func in tqdm(product(self.datasets, self.descriptor_functions)):
@@ -170,9 +196,32 @@ class Plate:
         # now run all the procedures
         combos = self._make_combos()
 
+        overall_results = {}
+
         for dataset, model, desc_func, samp_func, proc in tqdm(combos):
             res = proc(moodel=model, dataset=dataset, descriptor_func=desc_func, sampling_func=samp_func)
 
+            overall_results[(dataset, model, desc_func, samp_func, proc)] = res
+
+            if self._save_models:
+                for key in res.keys():
+                    file_name = self._to_string(dataset, model, desc_func, samp_func, proc) + ".pkl"
+                    file_loc = os.path.join(self._output_dir, "models", file_name)
+
+                    # trys to use manual model saving, otherwise defaults to trying to pickle
+                    if hasattr(key, "save"):
+                        key.save(file_loc)
+                    else:
+                        import pickle
+                        with open(file_loc, 'wb') as f:
+                            pickle.dump(key, f)
+
+        self.overall_results = overall_results
+
+        if print_output:
+            self.pretty_print()
+
+    # TODO need to check if this puppy works still
     def to_yaml(self, filename):
         host_dict = os.uname()
         s = {
@@ -198,6 +247,7 @@ class Plate:
             f.write(s)
             f.close()
 
+    # TODO need to rewrite this function
     def from_yaml(self, filename, check_file_contents=True):
         with open(filename, 'r') as f:
             d = yaml.load(f, Loader=yaml.Loader)
@@ -214,6 +264,45 @@ class Plate:
             else:
                 self.datasets.append(QSARDataset(**args))
 
+    @staticmethod
+    def _to_string(dataset, model, desc_func, samp_func, proc):
+        return "_".join([dataset.name, desc_func, samp_func, model.__name__,  proc.__name__])
+
+    def _check_for_results(self, overall_results):
+        if overall_results is None:
+            if overall_results in self.__dict__ and self.overall_results is not None:
+                overall_results = self.overall_results
+            else:
+                raise ValueError("plate has no results to print")
+        return overall_results
+
+    def pretty_print(self, overall_results=None):
+
+        print("-----------------"
+              "|    RESULTS    |"
+              "-----------------\n")
+
+        overall_results = self._check_for_results(overall_results)
+
+        for dataset, model, desc_func, samp_func, proc in overall_results.keys():
+            header = self._to_string(dataset, model, desc_func, samp_func, proc)
+            print(header)
+            res = overall_results[(dataset, model, desc_func, samp_func, proc)]
+
+            # skip procs that do not have metrics associated with them
+            if None in res.keys() or None in res.values():  # skips only training
+                continue
+            if isinstance(proc, partial) and "screening_dataset" in proc.keywords:  # skips screening
+                continue
+
+            for fold, (model, res) in enumerate(res.items()):
+                print(f"FOLD {fold}:  {' | '.join([f'{str(key)}: {str(val)}' for key, val in res.items()])}")
+            print("\n-------------------------------------------------------------------\n")
+
+    def results_to_csv(self, overall_results=None):
+        raise NotImplementedError
+        # overall_results = self._check_for_results(overall_results)
+
     @property
     def save_models(self):
         return self._save_models
@@ -229,6 +318,7 @@ class Plate:
     @generate_reports.setter
     def generate_reports(self, value):
         self._generate_reports = value
+        self.procedure.report = value
 
     @property
     def output_dir(self):
@@ -237,7 +327,9 @@ class Plate:
     @output_dir.setter
     def output_dir(self, value):
         self._output_dir = value
+        self.procedure.output_dir = self._output_dir
 
     @output_dir.deleter
     def output_dir(self):
         self._output_dir = os.path.join(os.getcwd(), str(datetime.now()))
+        self.procedure.output_dir = self._output_dir

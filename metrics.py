@@ -5,6 +5,8 @@ from sklearn.metrics import confusion_matrix
 
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
+# TODO need to clean this puppy up
+
 
 def threshold(y_pred, thresh=0.5):
     return np.where(y_pred >= thresh, 1, 0)

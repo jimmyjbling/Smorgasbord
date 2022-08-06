@@ -27,7 +27,7 @@ class BaseDataset:
         self.stored_args = {"filepath": filepath, "delimiter": delimiter, "smiles_col": smiles_col}
 
         # prep file
-        self.name = os.path.basename(filepath)
+        self.name = os.path.basename(filepath).split(".")[0]
         self.filepath = filepath.strip()
 
         # check if hash matches
@@ -39,7 +39,7 @@ class BaseDataset:
 
         # prep descriptor generation
         self.descriptor = DescriptorCalculator(cache=True)
-        self._random_state = np.random.randint(1e8)
+        self.random_state = np.random.randint(1e8)
         self._smiles_col = smiles_col
         self._failed = {}  # hold index of entries that failed to load or process
 
