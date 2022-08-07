@@ -7,81 +7,13 @@ from rdkit.DataStructs import ConvertToNumpyArray
 
 # TODO add logging for when descriptors are None, dont want to remove any rows here just return Nan/Nones
 
-# class Descriptor:
-#
-#     def to_dict(self):
-#         raise NotImplementedError
-#
-#     def get_descriptors(self, romols):
-#         raise NotImplementedError
-#
-#     def to_string(self):
-#         raise NotImplementedError
-#
-#
-# class MorganDescriptor(Descriptor):
-#     def __init__(self, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
-#         self.radius = radius
-#         self.n_bits = n_bits
-#         self.count = False
-#         self.use_chirality = use_chirality
-#         self.use_cached = use_cached
-#
-#         self.name = "Morgan"
-#
-#         self.stored_args = {}
-#         self.stored_args["radius"] = radius
-#         self.stored_args["n_bits"] = n_bits
-#         self.stored_args["count"] = count
-#         self.stored_args["use_chirality"] = use_chirality
-#         self.stored_args["use_cached"] = use_cached
-#
-#     def to_dict(self):
-#
-#         d = {}
-#         d["Name"] = "MorganDescriptor"
-#         d.update(self.stored_args)
-#         return d
-#
-#     def get_descriptors(self, romols):
-#
-#         # COME BACK AND VECTORIZE
-#         if not self.count:
-#             _fp = [AllChem.GetHashedMorganFingerprint(x,
-#                                                       radius=self.radius,
-#                                                       nBits=self.n_bits,
-#                                                       useChirality=self.use_chirality) for x in romols]
-#         else:
-#             raise NotImplementedError
-#             _fp = df["ROMol"].apply(AllChem.GetMorganFingerprintAsBitVect,
-#                                     kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
-#
-#         fp = []
-#         for x in _fp:
-#             dest = np.zeros(len(romols), dtype=np.int32)
-#             ConvertToNumpyArray(x, dest)
-#             fp.append(dest)
-#
-#         fp = np.vstack(fp)
-#
-#         return fp
-#
-#     def get_string(self):
-#
-#         return f"morgan_fingerprint_radius_{self.radius}_nbits_{self.n_bits}_count_{self.count}_chiral_{self.use_chirality}"
-
 
 class DescriptorCalculator:
-    def __init__(self, cache=False):
-        self._cache = cache
+    def __init__(self):
+        pass
 
-    def calc_morgan(self, df, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
-        args = {"radius": radius, "n_bits": n_bits, "count": count, "use_chirality": use_chirality}
-        # TODO NEED TO MAKE SURE THE SETTINGS ARE THE SAME BEFORE USING CACHE
-        if hasattr(self, "morgan") and use_cached:
-            if self.__getattribute__("morgan")[0] == args:
-                return self.__getattribute__("morgan")[1]
-
+    @staticmethod
+    def calc_morgan(df, radius=3, n_bits=2048, count=False, use_chirality=False):
         if count:
             _fp = df["ROMol"].apply(AllChem.GetHashedMorganFingerprint,
                                     kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
@@ -98,16 +30,10 @@ class DescriptorCalculator:
 
         fp = np.vstack(fp)
 
-        if self._cache:
-            self.__setattr__("morgan",
-                             ({"radius": radius, "n_bits": n_bits, "count": count, "use_chirality": use_chirality}, fp))
-
         return fp
 
-    def calc_maccs(self, df, use_cached=False):
-        if hasattr(self, "maccs") and use_cached:
-            return self.maccs[1]
-
+    @staticmethod
+    def calc_maccs(df):
         _fp = df["ROMol"].apply(AllChem.GetMACCSKeysFingerprint)
 
         # icky but is there a better way to use the ConvertToNumpy array?
@@ -119,41 +45,23 @@ class DescriptorCalculator:
 
         fp = np.vstack(fp)
 
-        if self._cache:
-            self.__setattr__("maccs", ({}, fp))
         return fp
 
-    def calc_rdkit(self, df, return_names=False, use_cached=False):
-        if hasattr(self, "rdkit") and use_cached:
-            if return_names:
-                return self.rdkit[0], self.rdkit[1]
-            else:
-                return self.rdkit[1]
-
-        desc_names = [x[0] for x in RDKitDescriptors.descList]
+    @staticmethod
+    def calc_rdkit(df):
         desc_funcs = [x[1] for x in RDKitDescriptors.descList]
 
         rdkit_desc = np.array(df["ROMol"].apply(lambda x: [func(x) for func in desc_funcs]).to_list())
 
-        if self.cache:
-            self.__setattr__("rdkit", ({}, rdkit_desc))
-        if return_names:
-            return desc_names, rdkit_desc
-        else:
-            return rdkit_desc
+        return rdkit_desc
 
-    def calc_mordred(self, df, no_rdkit=False, use_cached=False):
+    @staticmethod
+    def calc_mordred(df, no_rdkit=False):
         try:
             from mordred import descriptors as mordred_descriptors
             from mordred import Calculator as MordredCalc
         except ImportError:
             raise ImportError("in order to use mordred descriptors you must install the mordred python package")
-
-        args = {"no_rdkit": no_rdkit}
-
-        if hasattr(self, "mordred") and use_cached:
-            if self.mordred[0] == args:
-                return self.mordred[-1]
 
         if no_rdkit:
             descriptors = (mordred_descriptors.all[x] for x in range(len(mordred_descriptors.all))
@@ -165,59 +73,69 @@ class DescriptorCalculator:
 
         mordred_desc = np.array([list(x.values()) for x in df["ROMol"].apply(calc)])
 
-        if self._cache:
-            self.__setattr__("mordred", ({"no_rdkit": no_rdkit}, mordred_desc))
         return mordred_desc
 
-    def add_custom_descriptor(self, name, func):
+    @staticmethod
+    def rdkit_desc_name():
+        return [x[0] for x in RDKitDescriptors.descList]
+
+    def set_descriptor_function(self, name, func):
         self.__setattr__(f"calc_{name}", func)
 
-    def calc_custom_descriptor(self, df, name, func, **kwargs):
-        desc = func(df, **kwargs)
-        if self._cache:
-            self.__setattr__(f"calc_{name}", func)
-            self.__setattr__(name, (kwargs, desc))
-        else:
-            return desc
-
-    def add_descriptor(self, name, desc, **kwargs):
-        if name in self.__dict__:
-            raise ValueError("descriptor already exists to overwrite use set_descriptor")
-        self.set_descriptor(name, desc, **kwargs)
-
-    def set_descriptor(self, name, desc, **kwargs):
-        if self._cache:
-            self.__setattr__(name, (kwargs, desc))
-        else:
-            return desc
-
-    def get_available_descriptors(self):
-        return [key for key in self.__dict__.keys() if key != "_cache"]
-
-    # TODO add in the descriptor calculation and argument checking into this function
-    def get_descriptor_value(self, name):
-        if name not in self.get_available_descriptors():
-            raise ValueError(f"descriptor {name} does not exists for given dataset")
-        return self.__getattribute__(name)[1]
-
-    def get_descriptor_args(self, name):
-        if name not in self.get_available_descriptors():
-            raise ValueError(f"descriptor {name} does not exists for given dataset")
-        return self.__getattribute__(name)[0]
-
-    def delete_descriptor(self, name):
-        if name in self.__dict__:
-            self.__delattr__(name)
-
-    def get_all_descriptors(self, return_settings=False):
-        if return_settings:
-            return [(key, val[0], val[1]) for key, val in self.__dict__.items() if key != "_cache"]
-        else:
-            return [(key, val[1]) for key, val in self.__dict__.items() if key != "_cache"]
+    def _get_available_funcs(self):
+        return [x for x in dir(self) if "calc_" in x and callable(self.__getattribute__(x))]
 
     def func_exists(self, name):
         func_call = "calc_" + str(name)
         return func_call in dir(self) and callable(self.__getattribute__(func_call))
+
+
+class DatasetDescriptorCalculator(DescriptorCalculator):
+    def __init__(self, cache=True):
+        super().__init__()
+        self._cache = cache
+
+    def add_calculated_descriptor(self, name, desc, **kwargs):
+        if name in self.__dict__:
+            raise ValueError("descriptor already exists to overwrite use set_descriptor")
+        self.set_calculated_descriptor(name, desc, **kwargs)
+
+    def set_calculated_descriptor(self, name, desc, **kwargs):
+        if self._cache:
+            self.__setattr__(name, (kwargs, desc))
+        else:
+            return desc
+
+    def delete_calculated_descriptor(self, name):
+        if name in self.__dict__:
+            self.__delattr__(name)
+
+    def _get_available_calculated(self):
+        return [x for x in dir(self) if x != "_cache" and not callable(self.__getattribute__(x))]
+
+    def calculated_exists(self, name):
+        return name in self._get_available_calculated()
+
+    def _calculate_descriptor(self, name, df, **kwargs):
+        desc = self.get_descriptor_func(name)(df, **kwargs)
+        if self._cache:
+            self.__setattr__(name, (kwargs, self.get_descriptor_func(name)(df, **kwargs)))
+        return desc
+
+    # When try to get descriptors from the dataset object, you should always interface with this function to get them
+    def get_descriptor_value(self, name, df, **kwargs):
+        if not self.calculated_exists(name) or not self._args_match(name, kwargs):
+            return self._calculate_descriptor(name, df, **kwargs)
+        else:
+            return self.__getattribute__(name)[1]
+
+    def get_descriptor_args(self, name):
+        if not self.calculated_exists(name):
+            raise ValueError(f"descriptor {name} has not been calculated for the given dataset")
+        return self.__getattribute__(name)[0]
+
+    def _args_match(self, name, args):
+        return all([args[x] == self.get_descriptor_args(name)[x] for x in args.keys()])
 
     def get_descriptor_func(self, name):
         if self.func_exists(name):
@@ -225,27 +143,30 @@ class DescriptorCalculator:
         else:
             raise ValueError(f"descriptor {name} does not exist")
 
-    # TODO these two below are not very good come back to them
-    def get_descriptor_funcs(self):
-        return [x.replace("calc_", "") for x in dir(self) if callable(self.__getattribute__(x) and "calc_" in x)]
+    def funcs(self):
+        for x in self._get_available_funcs():
+            yield self.__getattribute__(x)
 
-    def iter_descriptors(self, return_settings=False):
-        if self._cache:
-            for key, val in self.__dict__:
-                if key != "_cache":
-                    if return_settings:
-                        yield key, val[0], val[1]
-                    else:
-                        yield key, val[1]
+    def values(self):
+        for x in self._get_available_calculated():
+            yield self.__getattribute__(x)[1]
+
+    def args(self):
+        for x in self._get_available_calculated():
+            yield self.__getattribute__(x)[0]
+
+    def args_and_vals(self):
+        for x in self._get_available_calculated():
+            yield self.__getattribute__(x)
 
     def to_dict(self, name):
-        args, _ = self.get_descriptor_value(name)
+        args = self.get_descriptor_args(name)
         args["name"] = name
         return args
 
     def get_string(self, name):
-        args, _ = self.get_descriptor_value(name)
-        return "_".join(name + list(args.values()))
+        args = self.get_descriptor_args(name)
+        return "_".join([name] + [f'{key}:{val}' for key, val in args.items()])
 
     @property
     def cache(self):
