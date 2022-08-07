@@ -3,7 +3,7 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem.PandasTools import LoadSDF
 from collections import Counter
-from descriptor import DescriptorCalculator
+from descriptor import DatasetDescriptorCalculator
 from sampling import Sampler
 import hashlib
 import copy
@@ -41,7 +41,7 @@ class BaseDataset:
         self._smiles_col = self._get_column_name(smiles_col)
 
         # prep descriptor generation
-        self.descriptor = DescriptorCalculator(cache=True)
+        self.descriptor = DatasetDescriptorCalculator(cache=True)
         self.random_state = np.random.randint(1e8)
         self._smiles_col = smiles_col
         self._failed = {}  # hold index of entries that failed to load or process
@@ -103,11 +103,11 @@ class BaseDataset:
         self.dataset = df
 
     def get_dataset(self):
-        """
-        takes the original dataset and drops failed indices (failed rdkit mols, missing labels, etc)
-        josh will always use this to access the dataframe and leave the original dataframe alone
-        """
         return self.dataset.drop(index=self._failed.keys())
+
+    def get_descriptor(self, desc_name, **kwargs):
+        return np.delete(self.descriptor.get_descriptor_value(desc_name, self.dataset, **kwargs),
+                         self._failed.keys(), axis=0)
 
     def _get_column_name(self, index):
         if index is not None:
@@ -122,45 +122,36 @@ class BaseDataset:
     def _get_column_names(self, indexes):
         return [self._get_column_name(idx) for idx in indexes]
 
-    def calc_descriptor(self, name, **kwargs):
-        func_call = "calc_" + str(name)
-        if self.descriptor.func_exists(name):
-            self.descriptor.__getattribute__(func_call)(self.dataset, **kwargs)
-        else:
-            raise AttributeError(f"cannot find function to calculate descriptor set {name}. can calculate "
-                                 f"{[_.replace('calc_', '') for _ in dir(self.descriptor) if 'calc_' in _ and callable(self.descriptor.__getattribute__(_))]}")
+    # TODO this needs to be reworked its not going to work like this and I think it should move to the desc calc object
+    # def merge_descriptors(self, descriptors):
+    #     name = []
+    #     desc_sets = []
+    #     desc_options = ()
+    #     if isinstance(descriptors, str):
+    #         descriptors = [descriptors]
+    #     for desc in descriptors:
+    #         if desc in self.descriptor.__dict__.keys():
+    #             name.append(desc)
+    #             desc_options = desc_options + (self.descriptor.__getattribute__(desc)[0])
+    #             desc_sets.append(self.descriptor.__getattribute__(desc)[1])
+    #
+    #     assert len(set([_.shape for _ in desc_sets])) <= 1
+    #     assert len(set([_.shape[0] for _ in desc_sets])) <= 1
+    #
+    #     self.add_descriptor_set("_".join(name), np.concatenate(desc_sets, axis=-1))
 
-    def get_descriptor(self, desc_name, mask_name=None, **kwargs):
-        if desc_name not in self.descriptor.get_available_descriptors():
-            self.calc_descriptor(desc_name, **kwargs)
-        if not all([kwargs[x] == self.descriptor.get_descriptor_args(desc_name)[x] for x in kwargs.keys()]):
-            self.calc_descriptor(desc_name, **kwargs)
-        return np.delete(self.descriptor.get_descriptor_value(desc_name), self._failed.keys(), axis=0)
+    def set_descriptor_func(self, name, func):
+        self.descriptor.set_descriptor_function(name, func)
 
-    def merge_descriptors(self, descriptors):
-        name = []
-        desc_sets = []
-        desc_options = ()
-        if isinstance(descriptors, str):
-            descriptors = [descriptors]
-        for desc in descriptors:
-            if desc in self.descriptor.__dict__.keys():
-                name.append(desc)
-                desc_options = desc_options + (self.descriptor.__getattribute__(desc)[0])
-                desc_sets.append(self.descriptor.__getattribute__(desc)[1])
-
-        assert len(set([_.shape for _ in desc_sets])) <= 1
-        assert len(set([_.shape[0] for _ in desc_sets])) <= 1
-
-        self.add_descriptor_set("_".join(name), np.concatenate(desc_sets, axis=-1))
-
-    def calc_custom_descriptor(self, name, func, **kwargs):
-        self.descriptor.calc_custom_descriptor(self.dataset, name, func, **kwargs)
-
-    def add_descriptor_set(self, name, desc):
-        desc = np.array(desc)
+    # TODO need to check if that way im passing args with ** is okay
+    def add_calculated_descriptor(self, name, desc, args=None):
+        desc = np.array(desc).astype(float)
         if desc.shape[0] == self.dataset.shape[0]:
-            self.descriptor.add_descriptor(name, desc)
+            if args is None: args = {}
+            self.descriptor.add_calculated_descriptor(name, desc, **args)
+        else:
+            raise ValueError(f"descriptor dimensions does not match dataset dimension on axis 0, f{desc.shape}, "
+                             f"f{self.dataset.shape}")
 
 
 class ScreeningDataset(BaseDataset):
@@ -169,10 +160,7 @@ class ScreeningDataset(BaseDataset):
 
         self._curation = curation
 
-    def get_descriptor_set(self, name, **kwargs):
-        if name not in self.descriptor.get_available_descriptors():
-            self.calc_descriptor(name, **kwargs)
-        return self.get_descriptor(name, **kwargs)
+    # TODO ask josh and kat if we think there are some function that are unique to screening datasets that we want
 
 
 class QSARDataset(BaseDataset):
@@ -320,12 +308,8 @@ class QSARDataset(BaseDataset):
         return self.dataset.drop(index=mask)
 
     def get_descriptor(self, desc_name, mask_name=None, **kwargs):
-        if desc_name not in self.descriptor.get_available_descriptors():
-            self.calc_descriptor(desc_name, **kwargs)
-        if not all([kwargs[x] == self.descriptor.get_descriptor_args(desc_name)[x] for x in kwargs.keys()]):
-            self.calc_descriptor(desc_name, **kwargs)
         mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
-        return np.delete(self.descriptor.get_descriptor_value(desc_name), mask, axis=0)
+        return np.delete(self.descriptor.get_descriptor_value(desc_name, self.dataset, **kwargs), mask, axis=0)
 
     def get_label(self, mask_name=None):
         if mask_name not in self.sampler.get_available_masks():
