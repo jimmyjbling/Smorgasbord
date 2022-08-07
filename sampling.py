@@ -1,74 +1,79 @@
 class Sampler:
-    def __init__(self, cache=False, random_state=None):
+    def __init__(self, random_state=None):
         self._random_state = random_state
-        self._cache = cache
 
-        self._funcs = ["undersample", "oversample"]
-
-    def undersample(self, X, y, return_mask=False):
-        if "undersample_mask" in self.__dict__:
-            return self.__getattribute__("undersample_mask")
-
+    def calc_undersample(self, X, y, return_mask=False):
         from imblearn.under_sampling import RandomUnderSampler
 
         rus = RandomUnderSampler(random_state=self._random_state)
         X_res, y_res = rus.fit_resample(X, y)
-
-        if self._cache:
-            self.__setattr__("undersample_mask", rus.sample_indices_)
 
         if return_mask:
             return rus.sample_indices_
         else:
             return X_res, y_res
 
-    def oversample(self, X, y, return_mask=False):
-        if "oversample_mask" in self.__dict__:
-            return self.__getattribute__("oversample_mask")
-
+    def calc_oversample(self, X, y, return_mask=False):
         from imblearn.over_sampling import RandomOverSampler
 
         ros = RandomOverSampler(random_state=self._random_state)
         X_res, y_res = ros.fit_resample(X, y)
-
-        if self._cache:
-            self.__setattr__("oversample_mask", ros.sample_indices_)
 
         if return_mask:
             return ros.sample_indices_
         else:
             return X_res, y_res
 
-    def remove_most_similar(self, X, y, return_mask=False):
+    def calc_remove_most_similar(self, X, y, return_mask=False):
         raise NotImplementedError
 
-    def remove_least_similar(self, X, y, return_mask=False):
+    def calc_remove_least_similar(self, X, y, return_mask=False):
         raise NotImplementedError
 
-    def add_custom_func(self, name, func):
-        self.__setattr__(str(name), func)
-        self._funcs.append(name)
+    @staticmethod
+    def _get_func_name(mask_name):
+        if not mask_name.startswith("calc_"):
+            mask_name = f"calc_{mask_name}"
+        return mask_name
 
-    def func_exists(self, name):
-        return name in dir(self) and callable(self.__getattribute__(name))
+    def add_sampling_func(self, mask_name, func):
+        self.__setattr__(self._get_func_name(mask_name), func)
 
-    def get_func(self, name):
-        if self.func_exists(name):
-            return self.__getattribute__(name)
+    def func_exists(self, mask_name):
+        return self._get_func_name(mask_name) in dir(self) and callable(self.__getattribute__(mask_name))
+
+    def get_func(self, mask_name):
+        if self.func_exists(mask_name):
+            return self.__getattribute__(mask_name)
         else:
-            raise ValueError(f"sampling function {name} does not exist")
+            raise ValueError(f"sampling function {mask_name} does not exist")
 
     def get_available_funcs(self):
-        return self._funcs
+        return [x.startswith("calc_") and callable(self.__getattribute__(x)) for x in dir(self)]
 
-    def mask_exist(self, name):
-        return f"{name}_mask" in self.__dict__
 
-    def get_mask(self, name):
-        if self.mask_exist(name):
-            return self.__getattribute__(f"{name}_mask")
+class DatasetSampler(Sampler):
+    def __init__(self, cache=True):
+        self._cache = cache
+        super().__init__()
+
+    def mask_exist(self, mask_name):
+        return mask_name in dir(self)
+
+    def _calc_sample(self, mask_name, X, y):
+        mask = self.get_func(mask_name)(X, y, return_mask=True)
+        if self._cache:
+            self.__setattr__(mask_name, mask)
+        return mask
+
+    def get_mask(self, mask_name, X, y):
+        if self.mask_exist(mask_name):
+            return self.__getattribute__(mask_name)
         else:
-            raise ValueError(f"mask {name} does not exist")
+            if self.func_exists(mask_name):
+                return self._calc_sample(mask_name, X, y)
+            else:
+                raise ValueError(f"mask {mask_name} does not exist")
 
     def get_available_masks(self):
         return [x for x in self.__dict__ if "_mask" in x]
