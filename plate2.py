@@ -246,6 +246,7 @@ class Plate:
         with open(filename, 'w') as f:
             f.write(s)
             f.close()
+    # fuck this
 
     # TODO need to rewrite this function
     def from_yaml(self, filename, check_file_contents=True):
