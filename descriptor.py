@@ -76,8 +76,11 @@ class DescriptorCalculator:
         self._cache = cache
 
     def calc_morgan(self, df, radius=3, n_bits=2048, count=False, use_chirality=False, use_cached=False):
+        args = {"radius": radius, "n_bits": n_bits, "count": count, "use_chirality": use_chirality}
+        # TODO NEED TO MAKE SURE THE SETTINGS ARE THE SAME BEFORE USING CACHE
         if hasattr(self, "morgan") and use_cached:
-            return self.__getattribute__("morgan")
+            if self.__getattribute__("morgan")[0] == args:
+                return self.__getattribute__("morgan")[1]
 
         if count:
             _fp = df["ROMol"].apply(AllChem.GetHashedMorganFingerprint,
@@ -118,8 +121,7 @@ class DescriptorCalculator:
 
         if self._cache:
             self.__setattr__("maccs", ({}, fp))
-        else:
-            return fp
+        return fp
 
     def calc_rdkit(self, df, return_names=False, use_cached=False):
         if hasattr(self, "rdkit") and use_cached:
@@ -134,12 +136,11 @@ class DescriptorCalculator:
         rdkit_desc = np.array(df["ROMol"].apply(lambda x: [func(x) for func in desc_funcs]).to_list())
 
         if self.cache:
-            self.__setattr__("rdkit", ({"rdkit_desc_names": desc_names}, rdkit_desc))
+            self.__setattr__("rdkit", ({}, rdkit_desc))
+        if return_names:
+            return desc_names, rdkit_desc
         else:
-            if return_names:
-                return desc_names, rdkit_desc
-            else:
-                return rdkit_desc
+            return rdkit_desc
 
     def calc_mordred(self, df, no_rdkit=False, use_cached=False):
         try:
@@ -148,8 +149,11 @@ class DescriptorCalculator:
         except ImportError:
             raise ImportError("in order to use mordred descriptors you must install the mordred python package")
 
+        args = {"no_rdkit": no_rdkit}
+
         if hasattr(self, "mordred") and use_cached:
-            return self.mordred
+            if self.mordred[0] == args:
+                return self.mordred[-1]
 
         if no_rdkit:
             descriptors = (mordred_descriptors.all[x] for x in range(len(mordred_descriptors.all))
@@ -163,8 +167,7 @@ class DescriptorCalculator:
 
         if self._cache:
             self.__setattr__("mordred", ({"no_rdkit": no_rdkit}, mordred_desc))
-        else:
-            return mordred_desc
+        return mordred_desc
 
     def add_custom_descriptor(self, name, func):
         self.__setattr__(f"calc_{name}", func)
@@ -191,10 +194,16 @@ class DescriptorCalculator:
     def get_available_descriptors(self):
         return [key for key in self.__dict__.keys() if key != "_cache"]
 
-    def get_descriptor(self, name):
+    # TODO add in the descriptor calculation and argument checking into this function
+    def get_descriptor_value(self, name):
         if name not in self.get_available_descriptors():
             raise ValueError(f"descriptor {name} does not exists for given dataset")
-        return self.__getattribute__(name)
+        return self.__getattribute__(name)[1]
+
+    def get_descriptor_args(self, name):
+        if name not in self.get_available_descriptors():
+            raise ValueError(f"descriptor {name} does not exists for given dataset")
+        return self.__getattribute__(name)[0]
 
     def delete_descriptor(self, name):
         if name in self.__dict__:
@@ -230,12 +239,12 @@ class DescriptorCalculator:
                         yield key, val[1]
 
     def to_dict(self, name):
-        args, _ = self.get_descriptor(name)
+        args, _ = self.get_descriptor_value(name)
         args["name"] = name
         return args
 
     def get_string(self, name):
-        args, _ = self.get_descriptor(name)
+        args, _ = self.get_descriptor_value(name)
         return "_".join(name + list(args.values()))
 
     @property

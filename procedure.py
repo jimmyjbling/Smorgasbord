@@ -10,7 +10,7 @@ class Procedure:
 
     def screen(self, model, screening_dataset, descriptor_func, dataset=None, sampling_func=None):
 
-        screening_X = screening_dataset.get_descriptor(descriptor_func)
+        screening_X = screening_dataset.get_descriptor_value(descriptor_func)
 
         if "predict_proba" in dir(model) and callable(model.__getattribute__("predict_proba")):
             res = model.predict_proba(screening_X)
@@ -22,7 +22,7 @@ class Procedure:
     def train(self, model, dataset, descriptor_func, sampling_func):
 
         y = dataset.get_label(mask_name=sampling_func)
-        X = dataset.get_descriptor(descriptor_func, mask_name=sampling_func)
+        X = dataset.get_descriptor_value(descriptor_func, mask_name=sampling_func)
 
         model.fit(X, y)
 
@@ -41,7 +41,7 @@ class Procedure:
         s = cv(**kwargs)
 
         y = dataset.get_label(mask_name=sampling_func)
-        X = dataset.get_descriptor(descriptor_func, mask_name=sampling_func)
+        X = dataset.get_descriptor_value(descriptor_func, mask_name=sampling_func)
 
         train_index, test_index = next(s.split(X, y))
 
@@ -76,7 +76,7 @@ class Procedure:
         cv_models = {}
 
         y = dataset.get_label(mask_name=sampling_func)
-        X = dataset.get_descriptor(descriptor_func, mask_name=sampling_func)
+        X = dataset.get_descriptor_value(descriptor_func, mask_name=sampling_func)
 
         for train_index, test_index in s.split(X, y):
             X_train, X_test = X[train_index], X[test_index]

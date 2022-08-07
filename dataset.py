@@ -21,6 +21,9 @@ unit_covert_dict = {
     "k": 10 ** 12
 }
 
+# TODO need to move all the descriptor argument matching and calculation to the descriptor class to much of it is
+#  going on in this dataset class
+
 
 class BaseDataset:
     def __init__(self, filepath, delimiter=None, smiles_col=1, file_hash=None):
@@ -119,18 +122,20 @@ class BaseDataset:
     def _get_column_names(self, indexes):
         return [self._get_column_name(idx) for idx in indexes]
 
-    def calc_descriptor(self, name):
+    def calc_descriptor(self, name, **kwargs):
         func_call = "calc_" + str(name)
         if self.descriptor.func_exists(name):
-            self.descriptor.__getattribute__(func_call)(self.dataset)
+            self.descriptor.__getattribute__(func_call)(self.dataset, **kwargs)
         else:
             raise AttributeError(f"cannot find function to calculate descriptor set {name}. can calculate "
                                  f"{[_.replace('calc_', '') for _ in dir(self.descriptor) if 'calc_' in _ and callable(self.descriptor.__getattribute__(_))]}")
 
-    def get_descriptor(self, desc_name, mask_name=None):
+    def get_descriptor(self, desc_name, mask_name=None, **kwargs):
         if desc_name not in self.descriptor.get_available_descriptors():
-            self.calc_descriptor(desc_name)
-        return np.delete(self.descriptor.get_descriptor(desc_name), self._failed.keys(), axis=0)
+            self.calc_descriptor(desc_name, **kwargs)
+        if not all([kwargs[x] == self.descriptor.get_descriptor_args(desc_name)[x] for x in kwargs.keys()]):
+            self.calc_descriptor(desc_name, **kwargs)
+        return np.delete(self.descriptor.get_descriptor_value(desc_name), self._failed.keys(), axis=0)
 
     def merge_descriptors(self, descriptors):
         name = []
@@ -164,10 +169,10 @@ class ScreeningDataset(BaseDataset):
 
         self._curation = curation
 
-    def get_descriptor_set(self, name):
+    def get_descriptor_set(self, name, **kwargs):
         if name not in self.descriptor.get_available_descriptors():
-            self.calc_descriptor(name)
-        return np.array(self.descriptor.get_descriptor(name))
+            self.calc_descriptor(name, **kwargs)
+        return self.get_descriptor(name, **kwargs)
 
 
 class QSARDataset(BaseDataset):
@@ -314,12 +319,13 @@ class QSARDataset(BaseDataset):
         mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
         return self.dataset.drop(index=mask)
 
-    def get_descriptor(self, desc_name, mask_name=None):
+    def get_descriptor(self, desc_name, mask_name=None, **kwargs):
         if desc_name not in self.descriptor.get_available_descriptors():
-            self.calc_descriptor(desc_name)
-
+            self.calc_descriptor(desc_name, **kwargs)
+        if not all([kwargs[x] == self.descriptor.get_descriptor_args(desc_name)[x] for x in kwargs.keys()]):
+            self.calc_descriptor(desc_name, **kwargs)
         mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
-        return np.delete(self.descriptor.get_descriptor(desc_name), mask, axis=0)
+        return np.delete(self.descriptor.get_descriptor_value(desc_name), mask, axis=0)
 
     def get_label(self, mask_name=None):
         if mask_name not in self.sampler.get_available_masks():
@@ -341,7 +347,7 @@ class QSARDataset(BaseDataset):
 
         return np.array(self._labels[kind].drop(index=self._failed.keys()), dtype=dtype)
 
-    def add_label(self, name, label):
+    def set_label(self, name, label):
         label = np.array(label)
         if label.shape[0] != self.dataset.shape[0] or len(label.shape) > 2:
             raise ValueError(f"label is malformed got shape {label.shape} excepted ({self.dataset.shape[0]}, 1)")
@@ -413,10 +419,10 @@ class QSARDataset(BaseDataset):
             # TODO make the object clone able and return the new dataset object with just this label
         self._labels["binary"] = self._split_data(cutoff=cutoff, class_names=class_names)
 
-    def add_binary_label(self, label):
+    def set_binary_label(self, label):
         if len(set(label)) != 2:
             raise ValueError(f"binary label not binary. got {len(set(label))} unique classes expected 2")
-        self.add_label("binary", label)
+        self.set_label("binary", label)
 
     def get_binary_label(self):
         if "binary" in self._labels.keys():
@@ -482,7 +488,7 @@ class QSARDataset(BaseDataset):
         self._labels["multiclass"] = self._split_data(cutoff=cutoff, class_names=class_names)
 
     def set_multiclass_label(self, label):
-        self.set_active_label("multiclass", label)
+        self.set_label("multiclass", label)
 
     def get_multiclass_label(self):
         if "multiclass" in self._labels.keys():
@@ -533,7 +539,7 @@ class QSARDataset(BaseDataset):
 
         label = np.array(label) * scale_factor
 
-        self.add_label(scaled_label_name, label)
+        self.set_label(scaled_label_name, label)
 
     def normalize_label(self, label):
         normalized_label_name = f"normalized"
@@ -545,7 +551,7 @@ class QSARDataset(BaseDataset):
 
         label = np.array(label) / max(label)
 
-        self.add_label(normalized_label_name, label)
+        self.set_label(normalized_label_name, label)
 
     def to_dict(self):
         return {"Arguments": self.stored_args,

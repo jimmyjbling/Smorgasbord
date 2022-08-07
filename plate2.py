@@ -246,24 +246,40 @@ class Plate:
         with open(filename, 'w') as f:
             f.write(s)
             f.close()
-    # fuck this
 
-    # TODO need to rewrite this function
     def from_yaml(self, filename, check_file_contents=True):
         with open(filename, 'r') as f:
             d = yaml.load(f, Loader=yaml.Loader)
             f.close()
 
-        # print(d)  #DEBUG LINE
-        dataset_dicts = d["Datasets"]
+        dataset_dicts = d["Datasets"] if "Datasets" in d.keys() else []
+        model_dicts = d["Models"] if "Models" in d.keys() else []
+        procedure_dicts = d["Procedures"] if "Procedures" in d.keys() else []
+        descriptor_dicts = d["Descriptor Functions"] if "Descriptor Functions" in d.keys() else []
+        sampling_dicts = d["Sampling Methods"] if "Sampling Methods" in d.keys() else []
+
+        # cannot run a plate without these things being added
+        # TODO in the future this should be a warning not a error as you could add the required things later
+        if len(dataset_dicts) == 0 or len(model_dicts) == 0 or len(procedure_dicts) == 0 or len(descriptor_dicts) == 0:
+            raise ValueError(f"this smorgasbord plate is missing some essential dishes:"
+                             f"{', '.join([f'no {_} passed' for _ in [dataset_dicts, model_dicts, procedure_dicts, descriptor_dicts] if len(_) == 0])}")
 
         for dataset_dict in dataset_dicts:
-            # print(dataset_dict)  #DEBUG LINE
-            args = dataset_dict["Arguments"]
-            if check_file_contents and "File Hash" in dataset_dict:
-                self.datasets.append(QSARDataset(file_hash=dataset_dict["File Hash"], **args))
-            else:
-                self.datasets.append(QSARDataset(**args))
+            self.add_dataset(QSARDataset(**dataset_dict))
+
+        for model_dict in model_dicts:
+            self.add_model(self._get_model(**model_dict))
+
+        for descriptor_dict in descriptor_dicts:
+            self.add_descriptor_function(**descriptor_dict["descriptor_name"])
+
+    @staticmethod
+    def _get_model(model_name, **kwargs):
+        import model
+        if model_name in dir(model):
+            return model.__dict__[model_name](**kwargs)
+        else:
+            raise ValueError(f"model class of name {model_name} does not exist in the model.py")
 
     @staticmethod
     def _to_string(dataset, model, desc_func, samp_func, proc):

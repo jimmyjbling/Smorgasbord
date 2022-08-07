@@ -2,9 +2,10 @@ from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
 import torch
 from torch import nn
 
-
 # TODO instead of a wrapper class could I just set attributes of the passed model?
+#  not to self I think using the sklearn api and building custom models from a given base class should suffice
 
+# TODO need to add wrapper calls for all sklearn models that we want to support by default with auto loading plates
 class QSARModel:
     '''
     def __init__(self, parent, model, name, child, child_name, desc_name, desc_settings, label):
