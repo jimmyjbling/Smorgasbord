@@ -66,11 +66,11 @@ class DatasetSampler(Sampler):
             self.__setattr__(mask_name, mask)
         return mask
 
-    def get_mask(self, mask_name, X, y):
+    def get_mask(self, mask_name, X=None, y=None):
         if self.mask_exist(mask_name):
             return self.__getattribute__(mask_name)
         else:
-            if self.func_exists(mask_name):
+            if self.func_exists(mask_name) and X is not None and y is not None:
                 return self._calc_sample(mask_name, X, y)
             else:
                 raise ValueError(f"mask {mask_name} does not exist")

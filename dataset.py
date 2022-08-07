@@ -4,7 +4,7 @@ from rdkit import Chem
 from rdkit.Chem.PandasTools import LoadSDF
 from collections import Counter
 from descriptor import DatasetDescriptorCalculator
-from sampling import Sampler
+from sampling import DatasetSampler
 import hashlib
 import copy
 import os
@@ -217,7 +217,7 @@ class QSARDataset(BaseDataset):
         self._multiclass_cutoff = None
 
         # sampling mask dictionary
-        self.sampler = Sampler(cache=True)
+        self.sampler = DatasetSampler(cache=True)
 
         ### HANDLE LABEL CLASSIFICATION ###
         if label not in ["auto", "binary", "multiclass", "continuous"]:
@@ -312,8 +312,6 @@ class QSARDataset(BaseDataset):
         return np.delete(self.descriptor.get_descriptor_value(desc_name, self.dataset, **kwargs), mask, axis=0)
 
     def get_label(self, mask_name=None):
-        if mask_name not in self.sampler.get_available_masks():
-            self.create_mask(mask_name)
         mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
         return np.delete(self.get_labels(self._active_label), mask, axis=0)
 
@@ -564,21 +562,12 @@ class QSARDataset(BaseDataset):
         self.dataset["Curation modified structure"] = modified
         self.dataset["Curated ROMol"] = curated_mols
 
+    # wrapper function (helpful for readability). If you want the actual balanced dataset should use get_dataset(mask)
     def balance(self, method="downsample"):
-        if method in dir(self.sampler) and callable(self.sampler.__getattribute__(method)):
-            self.create_mask(method)
-        else:
-            raise ValueError("balancing/sampling method does not exist")
+        self._get_balance_indices(method)
+
+    def _get_balance_indices(self, method):
+        return self.sampler.get_mask(method, self.dataset, self.get_labels(self.get_active_label()))
 
     def _union_failed_mask(self, mask_name):
-        return list(set(list(self.get_mask(mask_name)) + list(self._failed.keys())))
-
-    def get_mask(self, name):
-        return self.sampler.get_mask(name)
-
-    def create_mask(self, name):
-        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(self._active_label))
-
-    def create_custom_mask(self, name, func):
-        self.sampler.__setattr__(name, func)
-        self.sampler.__getattribute__(name)(X=np.zeros((self.dataset.shape[0]), 1), y=self.get_labels(self._active_label))
+        return list(set(list(self._get_balance_indices(mask_name)) + list(self._failed.keys())))

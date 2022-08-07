@@ -75,9 +75,10 @@ class Plate:
                     if not dataset.descriptor.func_exists(func):
                         found_func = self._find_desc_func(func)
                         if found_func is not None:
-                            dataset.descriptor.add_custom_descriptor(found_func)
+                            dataset.descriptor.set_descriptor_function(found_func.__name__, found_func)
                         else:
                             raise ValueError(f"new dataset object missing descriptor function {func}")
+            # sets datasets random state to match the plate
             if hasattr(dataset, "random_state"):
                 dataset.__setattr__("random_state", self._random_state)
             self.datasets.append(dataset)
@@ -105,21 +106,20 @@ class Plate:
                 descriptor_func = self._find_desc_func(descriptor_name)
 
             if descriptor_func is not None:
-                [d.descriptor.add_custom_descriptor(descriptor_name, descriptor_func) for d in self.datasets]
+                [d.descriptor.set_descriptor_function(descriptor_name, descriptor_func) for d in self.datasets]
             else:
-                raise ValueError(f"Descriptor function {descriptor_name} does not exist for "
-                                 f"all currently loaded datasets")
+                raise ValueError(f"Descriptor function {descriptor_name} does not exist")
 
     def add_sampling_method(self, sampling_method, sampling_func=None):
         if all([d.sampler.func_exists(sampling_method) for d in self.datasets]):
             self.sampling_methods.append(sampling_method)
         else:
-            # check if you can find a matching descriptor set in any of the dataset and if so use that
+            # check if you can find a matching sampling function in any of the dataset and if so use that
             if sampling_func is None:
                 sampling_func = self._find_sample_func(sampling_method)
 
             if sampling_func is not None:
-                [d.sampler.add_custom_sampling_func(sampling_method, sampling_func) for d in self.datasets]
+                [d.sampler.add_sampling_func(sampling_method, sampling_func) for d in self.datasets]
             else:
                 raise ValueError(f"Descriptor function {sampling_method} does not exist for "
                                  f"all currently loaded datasets")

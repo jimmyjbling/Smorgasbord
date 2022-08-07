@@ -144,9 +144,12 @@ class DatasetDescriptorCalculator(DescriptorCalculator):
         return desc
 
     # When try to get descriptors from the dataset object, you should always interface with this function to get them
-    def get_descriptor_value(self, name, df, **kwargs):
+    def get_descriptor_value(self, name, df=None, **kwargs):
         if not self.calculated_exists(name) or not self._args_match(name, kwargs):
-            return self._calculate_descriptor(name, df, **kwargs)
+            if df is not None:
+                return self._calculate_descriptor(name, df, **kwargs)
+            else:
+                raise ValueError(f"descriptor {name} has not been calculated for the given dataset")
         else:
             return self.__getattribute__(name)[1]
 
