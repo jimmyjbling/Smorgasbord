@@ -84,15 +84,31 @@ class DescriptorCalculator:
     def rdkit_desc_name():
         return [x[0] for x in RDKitDescriptors.descList]
 
+    @ staticmethod
+    def _get_func_name(name):
+        if not name.startswith("calc_"):
+            name = f"calc_{name}"
+        return name
+
     def set_descriptor_function(self, name, func):
-        self.__setattr__(f"calc_{name}", func)
+        self.__setattr__(self._get_func_name(name), func)
 
     def _get_available_funcs(self):
-        return [x for x in dir(self) if "calc_" in x and callable(self.__getattribute__(x))]
+        return [x for x in dir(self) if x.startswith("calc_") and callable(self.__getattribute__(x))]
 
     def func_exists(self, name):
-        func_call = "calc_" + str(name)
+        func_call = self._get_func_name(name)
         return func_call in dir(self) and callable(self.__getattribute__(func_call))
+
+    def get_descriptor_func(self, name):
+        if self.func_exists(name):
+            return self.__getattribute__(self._get_func_name(name))
+        else:
+            raise ValueError(f"descriptor {name} does not exist")
+
+    def funcs(self):
+        for x in self._get_available_funcs():
+            yield self.__getattribute__(x)
 
 
 class DatasetDescriptorCalculator(DescriptorCalculator):
@@ -141,16 +157,6 @@ class DatasetDescriptorCalculator(DescriptorCalculator):
 
     def _args_match(self, name, args):
         return all([args[x] == self.get_descriptor_args(name)[x] for x in args.keys()])
-
-    def get_descriptor_func(self, name):
-        if self.func_exists(name):
-            return self.__getattribute__("calc_" + name)
-        else:
-            raise ValueError(f"descriptor {name} does not exist")
-
-    def funcs(self):
-        for x in self._get_available_funcs():
-            yield self.__getattribute__(x)
 
     def values(self):
         for x in self._get_available_calculated():
