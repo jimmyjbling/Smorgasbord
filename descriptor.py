@@ -9,41 +9,44 @@ from rdkit.DataStructs import ConvertToNumpyArray
 
 
 class DescriptorCalculator:
+    # Note all descriptor methods need to be able to handle failures by returning numpy nans for that row
     def __init__(self):
         pass
 
     @staticmethod
     def calc_morgan(df, radius=3, n_bits=2048, count=False, use_chirality=False):
         if count:
-            _fp = df["ROMol"].apply(AllChem.GetHashedMorganFingerprint,
-                                    kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
+            _fp = df["ROMol"].apply(lambda x: AllChem.GetHashedMorganFingerprint(x, radius=radius, nBits=n_bits, useChirality=use_chirality) if x is not None else np.nan)
         else:
-            _fp = df["ROMol"].apply(AllChem.GetMorganFingerprintAsBitVect,
-                                    kwargs={"radius": radius, "nBits": n_bits, "useChirality": use_chirality})
+            _fp = df["ROMol"].apply(lambda x: AllChem.GetMorganFingerprintAsBitVect(x, radius=radius, nBits=n_bits, useChirality=use_chirality) if x is not None else np.nan)
 
         # icky but is there a better way to use the ConvertToNumpy array?
         fp = []
         for x in _fp:
-            dest = np.zeros(len(df), dtype=np.int32)
-            ConvertToNumpyArray(x, dest)
-            fp.append(dest)
-
-        fp = np.vstack(fp)
+            if isinstance(x, float) and np.isnan(x):
+                fp.append(np.full(n_bits, np.nan))
+            else:
+                dest = np.zeros(n_bits, dtype=np.int32)
+                ConvertToNumpyArray(x, dest)
+                fp.append(dest)
+        fp = np.vstack(fp).astype(float)
 
         return fp
 
     @staticmethod
     def calc_maccs(df):
-        _fp = df["ROMol"].apply(AllChem.GetMACCSKeysFingerprint)
+        _fp = df["ROMol"].apply(lambda x: AllChem.GetMACCSKeysFingerprint(x) if x is not None else np.nan)
 
         # icky but is there a better way to use the ConvertToNumpy array?
         fp = []
         for x in _fp:
-            dest = np.zeros(len(df), dtype=np.int32)
-            ConvertToNumpyArray(x, dest)
-            fp.append(dest)
-
-        fp = np.vstack(fp)
+            if isinstance(x, float) and np.isnan(x):
+                fp.append(np.full(167, np.nan))
+            else:
+                dest = np.zeros(167, dtype=np.int32)
+                ConvertToNumpyArray(x, dest)
+                fp.append(dest)
+        fp = np.vstack(fp).astype(float)
 
         return fp
 
@@ -51,7 +54,7 @@ class DescriptorCalculator:
     def calc_rdkit(df):
         desc_funcs = [x[1] for x in RDKitDescriptors.descList]
 
-        rdkit_desc = np.array(df["ROMol"].apply(lambda x: [func(x) for func in desc_funcs]).to_list())
+        rdkit_desc = np.array(df["ROMol"].apply(lambda x: [func(x) for func in desc_funcs] if x is not None else [np.nan for _ in range(len(desc_funcs))]).to_list()).astype(float)
 
         return rdkit_desc
 
@@ -71,7 +74,9 @@ class DescriptorCalculator:
 
         calc = MordredCalc(descriptors)
 
-        mordred_desc = np.array([list(x.values()) for x in df["ROMol"].apply(calc)])
+        # when list comprehension goes wild
+        mordred_desc = np.array([list(x.values()) if x is not None else [np.nan for _ in range(len(calc))] for x in
+                                 df["ROMol"].apply(lambda z: calc(z) if z is not None else None)]).astype(float)
 
         return mordred_desc
 
