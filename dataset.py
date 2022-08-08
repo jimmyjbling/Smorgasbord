@@ -155,7 +155,7 @@ class BaseDataset:
 
 
 class ScreeningDataset(BaseDataset):
-    def __init__(self, filepath, delimiter=None, smiles_col=1, curation="default"):
+    def __init__(self, filepath, delimiter=None, smiles_col=1, curation="default", **kwargs):
         super().__init__(filepath, delimiter, smiles_col)
 
         self._curation = curation
@@ -564,7 +564,8 @@ class QSARDataset(BaseDataset):
 
     # wrapper function (helpful for readability). If you want the actual balanced dataset should use get_dataset(mask)
     def balance(self, method="downsample"):
-        self._get_balance_indices(method)
+        if method is not None:
+            self._get_balance_indices(method)
 
     def _get_balance_indices(self, method):
         return self.sampler.get_mask(method, self.dataset, self.get_labels(self.get_active_label()))

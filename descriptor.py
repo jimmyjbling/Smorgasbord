@@ -5,8 +5,9 @@ from rdkit.DataStructs import ConvertToNumpyArray
 
 # TODO ADD SUPPORT FOR NONE PANDAS OBJECTS
 
-# TODO add logging for when descriptors are None, dont want to remove any rows here just return Nan/Nones
-
+# TODO need to think long and hard about if I want to rewrite this again so each descriptor function is a class on its
+#  own. This would make collecting args and building plates easier at the cost making the descriptors alot less user
+#  friendly and alot more class heavy
 
 class DescriptorCalculator:
     # Note all descriptor methods need to be able to handle failures by returning numpy nans for that row
@@ -175,7 +176,7 @@ class DatasetDescriptorCalculator(DescriptorCalculator):
 
     def to_dict(self, name):
         args = self.get_descriptor_args(name)
-        args["name"] = name
+        # args["name"] = name
         return args
 
     def get_string(self, name):

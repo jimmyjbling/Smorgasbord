@@ -8,8 +8,9 @@ class Procedure:
         self.metrics = metrics
         self.output_dir = output_dir
 
-    def screen(self, model, screening_dataset, descriptor_func, dataset=None, sampling_func=None):
-
+    # this function takes in kwargs because the way I make the plates run it will always pass dataset and samp func
+    #  kwargs will allow this to work without an argument error (rusty and bad practice sure, but it works)
+    def screen(self, model, descriptor_func, screening_dataset, **kwargs):
         screening_X = screening_dataset.get_descriptor_value(descriptor_func)
 
         if "predict_proba" in dir(model) and callable(model.__getattribute__("predict_proba")):
@@ -27,6 +28,10 @@ class Procedure:
         model.fit(X, y)
 
         return {model: None}
+
+    def train_and_screen(self, dataset, sampling_func, model, descriptor_func, screening_dataset):
+        self.train(model=model, dataset=dataset, descriptor_func=descriptor_func, sampling_func=sampling_func)
+        return self.screen(model=model, descriptor_func=descriptor_func, screening_dataset=screening_dataset)
 
     def train_with_test(self, model, dataset, descriptor_func, sampling_func, cv=None, **kwargs):
 
@@ -55,7 +60,7 @@ class Procedure:
         else:
             y_pred = model.predict(X_test)
 
-        res = self.eval(y_test, y_pred)
+        res = self._eval(y_test, y_pred)
 
         # TODO implement the report functions
         if self.report:
@@ -91,7 +96,7 @@ class Procedure:
             else:
                 y_pred = model.predict(X_test)
 
-            res = self.eval(y_test, y_pred)
+            res = self._eval(y_test, y_pred)
 
             # TODO implement report function
             if self.report:
@@ -101,7 +106,7 @@ class Procedure:
 
         return cv_models
 
-    def eval(self, y_true, y_pred):
+    def _eval(self, y_true, y_pred):
         if self.metrics is None:
             if y_true.dtype == int:
                 self.metrics = get_default_classification_metrics()

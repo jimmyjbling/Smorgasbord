@@ -97,10 +97,8 @@ class Plate:
         else:
             raise ValueError(f"model object lacks a callable fit function")
 
-    def add_descriptor_function(self, descriptor_name, descriptor_func=None):
-        if all([d.descriptor.func_exists(descriptor_name) for d in self.datasets]):
-            self.descriptor_functions.append(descriptor_name)
-        else:
+    def add_descriptor_function(self, descriptor_name, descriptor_func=None, **kwargs):
+        if not all([d.descriptor.func_exists(descriptor_name) for d in self.datasets]):
             # check if you can find a matching descriptor set in any of the dataset and if so use that
             if descriptor_func is None:
                 descriptor_func = self._find_desc_func(descriptor_name)
@@ -109,6 +107,18 @@ class Plate:
                 [d.descriptor.set_descriptor_function(descriptor_name, descriptor_func) for d in self.datasets]
             else:
                 raise ValueError(f"Descriptor function {descriptor_name} does not exist")
+
+        # this chunk of code is to get the full argument list of the descriptor function...
+        #  it is not the most ideal way, but it works. The issue steams from the freedom to use the same descriptor
+        #  with different params and since descriptor funcs are functions in a descriptor clac object it will just
+        #  overwrite them.
+        import inspect
+        dummy_calc = self.datasets[0].descriptor if len(self.datasets) > 0 else DescriptorCalculator()
+        signature = inspect.signature(dummy_calc.get_descriptor_func(descriptor_name))
+        default_args = {k: v.default for k, v in signature.parameters.items() if v.default is not inspect.Parameter.empty}
+        kwargs = default_args.update(kwargs)
+
+        self.descriptor_functions.append((descriptor_name, kwargs))
 
     def add_sampling_method(self, sampling_method, sampling_func=None):
         if all([d.sampler.func_exists(sampling_method) for d in self.datasets]):
@@ -186,8 +196,8 @@ class Plate:
 
         from tqdm import tqdm
         # calculate descriptors for every dataset first
-        for dataset, desc_func in tqdm(product(self.datasets, self.descriptor_functions)):
-            dataset.calc_descriptor(desc_func)
+        for dataset, (desc_func, kwargs) in tqdm(product(self.datasets, self.descriptor_functions)):
+            dataset.get_descriptor(desc_func, **kwargs)
 
         # calculate sampling masks for everyone next
         for dataset, samp_func in tqdm(product(self.datasets, self.sampling_methods)):
@@ -221,15 +231,19 @@ class Plate:
         if print_output:
             self.pretty_print()
 
-    # TODO need to check if this puppy works still
     def to_yaml(self, filename):
+        import inspect
+
         host_dict = os.uname()
+
+        # my goal for this dictionary is to make it as unreadable as possible lol
         s = {
-            "Datasets": [x.to_dict() for x in self.datasets],
-            "Models": [x.to_dict() for x in self.models],
-            "Descriptor Functions": [x.to_dict() for x in self.descriptor_functions],
-            "Sampling Methods": [x for x in self.sampling_methods],
-            "Procedures": [x for x in self.procedures],
+            "Datasets": [d.to_dict() for d in self.datasets],
+            "Models": [{'Name': m.__name__(), 'args': m.get_params()} for m in self.models],
+            "Descriptor Functions": [{'Name': d[0], 'args': d[1]} for d in self.descriptor_functions],
+            "Sampling Methods": [s for s in self.sampling_methods],
+            "Procedures": [{p.__name__: {k: v.default for k, v in inspect.signature(p).parameters.items() if v.default
+                                         is not inspect.Parameter.empty}} for p in self.procedures],
             "Metadata": {
                 "Date": str(datetime.now()),
                 "User": os.getlogin(),
@@ -241,13 +255,11 @@ class Plate:
             }
         }
 
-        s = yaml.dump(s)
-
         with open(filename, 'w') as f:
-            f.write(s)
+            f.write(yaml.dump(s))
             f.close()
 
-    def from_yaml(self, filename, check_file_contents=True):
+    def from_yaml(self, filename):
         with open(filename, 'r') as f:
             d = yaml.load(f, Loader=yaml.Loader)
             f.close()
@@ -256,22 +268,35 @@ class Plate:
         model_dicts = d["Models"] if "Models" in d.keys() else []
         procedure_dicts = d["Procedures"] if "Procedures" in d.keys() else []
         descriptor_dicts = d["Descriptor Functions"] if "Descriptor Functions" in d.keys() else []
-        sampling_dicts = d["Sampling Methods"] if "Sampling Methods" in d.keys() else []
+        sampling_methods = d["Sampling Methods"] if "Sampling Methods" in d.keys() else []
 
-        # cannot run a plate without these things being added
-        # TODO in the future this should be a warning not a error as you could add the required things later
+        # I think that loading a plate from yaml should have it run right away without the ability to edit the plate...
         if len(dataset_dicts) == 0 or len(model_dicts) == 0 or len(procedure_dicts) == 0 or len(descriptor_dicts) == 0:
             raise ValueError(f"this smorgasbord plate is missing some essential dishes:"
                              f"{', '.join([f'no {_} passed' for _ in [dataset_dicts, model_dicts, procedure_dicts, descriptor_dicts] if len(_) == 0])}")
 
         for dataset_dict in dataset_dicts:
-            self.add_dataset(QSARDataset(**dataset_dict))
+            args = dataset_dict["args"] if dataset_dict["args"] is not None else {}
+            self.add_dataset(QSARDataset(**args))
 
         for model_dict in model_dicts:
-            self.add_model(self._get_model(**model_dict))
+            args = model_dict["args"] if model_dict["args"] is not None else {}
+            self.add_model(self._get_model(**args))
 
         for descriptor_dict in descriptor_dicts:
-            self.add_descriptor_function(**descriptor_dict["descriptor_name"])
+            args = descriptor_dict["args"] if descriptor_dict["args"] is not None else {}
+            self.add_descriptor_function(descriptor_dict["Name"], **args)
+
+        for sampling_method in sampling_methods:
+            self.add_sampling_method(sampling_method)
+
+        for procedure_dict in procedure_dicts:
+            if isinstance(procedure_dict, dict):
+                proc_name = list(procedure_dict.keys())[0]
+                proc_args = procedure_dict[proc_name] if procedure_dict[proc_name] is not None else {}
+                self.add_procedures(proc_name, **proc_args)
+            else:
+                self.add_procedures(procedure_dict)
 
     @staticmethod
     def _get_model(model_name, **kwargs):
@@ -283,14 +308,14 @@ class Plate:
 
     @staticmethod
     def _to_string(dataset, model, desc_func, samp_func, proc):
-        return "_".join([dataset.name, desc_func, samp_func, model.__name__,  proc.__name__])
+        return "_".join([dataset.name, dataset.descriptor.get_string(desc_func), samp_func, model.__name__,  proc.__name__])
 
     def _check_for_results(self, overall_results):
         if overall_results is None:
             if overall_results in self.__dict__ and self.overall_results is not None:
                 overall_results = self.overall_results
             else:
-                raise ValueError("plate has no results to print")
+                raise ValueError("plate has no results")
         return overall_results
 
     def pretty_print(self, overall_results=None):
