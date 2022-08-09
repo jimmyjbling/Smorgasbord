@@ -50,7 +50,7 @@ class Procedure:
         s = cv(**kwargs)
 
         y = dataset.get_label(mask_name=sampling_func)
-        X = dataset.get_descriptor_value(descriptor_func, mask_name=sampling_func)
+        X = dataset.get_descriptor(descriptor_func, mask_name=sampling_func)
 
         train_index, test_index = next(s.split(X, y))
 
@@ -98,7 +98,7 @@ class Procedure:
 
             model_copy = deepcopy(model)
 
-            model_copy.fit(X, y)
+            model_copy.fit(X_train, y_train)
 
             if "predict_proba" in dir(model_copy) and callable(model_copy.__getattribute__("predict_proba")):
                 y_pred = model_copy.predict_proba(X_test)
