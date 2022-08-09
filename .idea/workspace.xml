@@ -4,11 +4,198 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e7ef86e1-8804-4666-bd81-374757f8c046" name="Changes" comment="refactored sampling classes">
-      <change beforePath="$PROJECT_DIR$/dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/dataset.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/descriptor.py" beforeDir="false" afterPath="$PROJECT_DIR$/descriptor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plate2.py" beforeDir="false" afterPath="$PROJECT_DIR$/plate2.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sampling.py" beforeDir="false" afterPath="$PROJECT_DIR$/sampling.py" afterDir="false" />
+    <list default="true" id="e7ef86e1-8804-4666-bd81-374757f8c046" name="Changes" comment="It works!!!!!">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/212.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/212_MOE.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/1.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/1.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/10.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/10.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/11.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/11.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/12.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/12.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/13.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/13.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/14.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/14.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/15.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/15.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/16.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/16.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/17.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/17.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/18.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/18.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/19.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/19.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/2.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/2.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/20.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/20.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/21.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/21.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/212-1224.x" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/212.ind.act" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/212.scor.act" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/212.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/22.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/22.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/23.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/23.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/24.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/24.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/25.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/25.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/26.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/26.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/27.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/27.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/28.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/28.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/29.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/29.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/297.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/297names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/3.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/3.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/30.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/30.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/31.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/31.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/32.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/32.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/320.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/33.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/33.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/34.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/34.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/35.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/35.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/36.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/36.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/37.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/37.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/38.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/38.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/39.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/39.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/4.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/4.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/40.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/40.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/41.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/41.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/42.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/42.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/43.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/43.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/44.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/44.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/45.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/45.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/46.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/46.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/47.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/47.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/48.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/48.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/49.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/49.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/5.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/5.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/50.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/50.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/51.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/51.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/52.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/52.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/53.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/53.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/54.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/54.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/55.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/55.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/56.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/56.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/57.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/57.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/58.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/58.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/59.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/59.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/6.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/6.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/60.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/60.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/60.temp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/60.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/7.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/7.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/8.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/8.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/9.names.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/9.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/CHR_RAT_TUM.a" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/CHR_RAT_TUM.act" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/CHR_RAT_TUM.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/DEV_RAT_SKEL_APP.a" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/DEV_RAT_SKEL_APP.act" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/DEV_RAT_SKEL_APP.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/H1.a" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/H1_active_cut7.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/H1_inactive_cut7.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/TXCST1_std_unq.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/TXCST2_std_unq.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/Toxsci_12_0098_File004.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/addnamessdf.awk" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/alpha2C_active_cut7.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/alpha2C_inactive_cut7.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/countactinact.awk" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/selectfromsdf.awk" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/selectfromsdfall.awk" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/temp.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/test.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/test2.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/DRASTIC/toxsci_12_0098_File004_1.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/MDR1.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/MDR1i.sdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT1A.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT1B.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT1D.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT1E.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT2A.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT2C.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT3.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT5.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT6.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_5-HT7.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Alpha-1A.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Alpha-1B.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Alpha-2A.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Alpha-2B.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Alpha-2C.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Beta-1.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Beta-2.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_DOPAMINE D1.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_DOPAMINE D2.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_DOPAMINE D3.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_DOPAMINE D4.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_DOPAMINE D5.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Dopamine transporter.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_HISTAMINE H1.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_HISTAMINE H2.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_HISTAMINE H3.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_HISTAMINE H4.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Muscarinic acetylcholine receptor M1.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Muscarinic acetylcholine receptor M2.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Muscarinic acetylcholine receptor M3.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Muscarinic acetylcholine receptor M4.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Muscarinic acetylcholine receptor M5.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Norepinephrine transporter.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MODIdeep/Datasets/SDF-FOR-MODI/QSAROME/34_targets_curated_data_NORM_Serotonin transporter.SDF" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dummy_plate_out.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/dummy_plate_out.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,7 +258,7 @@
     <property name="node.js.selected.package.tslint" value="(autodetect)" />
     <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
-  <component name="RunManager" selected="Python tests.Python tests for test.TestPlate.test_to_from_yaml">
+  <component name="RunManager" selected="Python.plate2">
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -138,6 +325,25 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="plate2" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Smorgasbord" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/plate2.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="qsar_utils" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Smorgasbord" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -177,11 +383,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.plate2" />
         <item itemvalue="Python tests.Python tests for test.TestPlate.test_to_from_yaml" />
         <item itemvalue="Python.qsar_utils" />
         <item itemvalue="Python.descriptor" />
         <item itemvalue="Python.dataset" />
-        <item itemvalue="Python tests.Python tests for test.TestPlate.test_to_from_yaml" />
       </list>
     </recent_temporary>
   </component>
@@ -210,7 +416,7 @@
       <workItem from="1659573159913" duration="11222000" />
       <workItem from="1659654896417" duration="2411000" />
       <workItem from="1659703924200" duration="2193000" />
-      <workItem from="1659800562374" duration="23385000" />
+      <workItem from="1659800562374" duration="48086000" />
     </task>
     <task id="LOCAL-00001" summary="adding in support to train and screen models">
       <created>1658034911244</created>
@@ -513,7 +719,35 @@
       <option name="project" value="LOCAL" />
       <updated>1659909406036</updated>
     </task>
-    <option name="localTasksCounter" value="44" />
+    <task id="LOCAL-00044" summary="fixed problem with loosing descriptor args inside descriptor calc object">
+      <created>1659910424520</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1659910424520</updated>
+    </task>
+    <task id="LOCAL-00045" summary="git ignore update">
+      <created>1659919894739</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1659919894739</updated>
+    </task>
+    <task id="LOCAL-00046" summary="i went kinda crazy">
+      <created>1659989524571</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1659989524571</updated>
+    </task>
+    <task id="LOCAL-00047" summary="It works!!!!!">
+      <created>1660054248316</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1660054248316</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -531,10 +765,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="refactored dataset into base class and child classes" />
-    <MESSAGE value="added balancing function to dataset object" />
-    <MESSAGE value="fixed screening dataset issues" />
-    <MESSAGE value="finished basic of procedure class" />
     <MESSAGE value="added in plate add_sampler func" />
     <MESSAGE value="added smote qsar utils @19" />
     <MESSAGE value="preping for refactor of sampling class to mimic descriptor class" />
@@ -556,15 +786,19 @@
     <MESSAGE value="descriptor functions moved to descriptor object" />
     <MESSAGE value="added ability to detect proper func names" />
     <MESSAGE value="refactored sampling classes" />
-    <option name="LAST_COMMIT_MESSAGE" value="refactored sampling classes" />
+    <MESSAGE value="fixed problem with loosing descriptor args inside descriptor calc object" />
+    <MESSAGE value="git ignore update" />
+    <MESSAGE value="i went kinda crazy" />
+    <MESSAGE value="It works!!!!!" />
+    <option name="LAST_COMMIT_MESSAGE" value="It works!!!!!" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/procedure.py</url>
-          <line>71</line>
-          <option name="timeStamp" value="1" />
+          <url>file://$PROJECT_DIR$/metrics.py</url>
+          <line>16</line>
+          <option name="timeStamp" value="10" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -580,6 +814,7 @@
     <SUITE FILE_PATH="coverage/Smorgasbord$dataset.coverage" NAME="dataset Coverage Results" MODIFIED="1658285367256" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Smorgasbord$qsar_utils.coverage" NAME="qsar_utils Coverage Results" MODIFIED="1658349106857" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Smorgasbord$.coverage" NAME=" Coverage Results" MODIFIED="1658787694815" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Smorgasbord$plate2.coverage" NAME="plate2 Coverage Results" MODIFIED="1660054080617" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Smorgasbord$descriptor.coverage" NAME="descriptor Coverage Results" MODIFIED="1658017504729" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
