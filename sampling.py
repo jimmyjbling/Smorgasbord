@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class Sampler:
     def __init__(self, random_state=None):
         self._random_state = random_state
@@ -9,7 +12,7 @@ class Sampler:
         X_res, y_res = rus.fit_resample(X, y)
 
         if return_mask:
-            return rus.sample_indices_
+            return self._flip_index(y.shape[0], rus.sample_indices_)
         else:
             return X_res, y_res
 
@@ -20,7 +23,7 @@ class Sampler:
         X_res, y_res = ros.fit_resample(X, y)
 
         if return_mask:
-            return ros.sample_indices_
+            return self._flip_index(y.shape[0], ros.sample_indices_)
         else:
             return X_res, y_res
 
@@ -36,15 +39,21 @@ class Sampler:
             mask_name = f"calc_{mask_name}"
         return mask_name
 
+    def _flip_index(self, size, index):
+        mask = np.full(size, True, bool)
+        mask[index] = False
+        index = np.arange(size)
+        return index[mask]
+
     def add_sampling_func(self, mask_name, func):
         self.__setattr__(self._get_func_name(mask_name), func)
 
     def func_exists(self, mask_name):
-        return self._get_func_name(mask_name) in dir(self) and callable(self.__getattribute__(mask_name))
+        return self._get_func_name(mask_name) in dir(self) and callable(self.__getattribute__(self._get_func_name(mask_name)))
 
     def get_func(self, mask_name):
         if self.func_exists(mask_name):
-            return self.__getattribute__(mask_name)
+            return self.__getattribute__(self._get_func_name(mask_name))
         else:
             raise ValueError(f"sampling function {mask_name} does not exist")
 

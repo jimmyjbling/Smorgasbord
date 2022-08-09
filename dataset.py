@@ -107,7 +107,7 @@ class BaseDataset:
 
     def get_descriptor(self, desc_name, **kwargs):
         return np.delete(self.descriptor.get_descriptor_value(desc_name, self.dataset, **kwargs),
-                         self._failed.keys(), axis=0)
+                         list(self._failed.keys()), axis=0)
 
     def _get_column_name(self, index):
         if index is not None:
@@ -304,15 +304,15 @@ class QSARDataset(BaseDataset):
         takes the original dataset and drops failed indices (failed rdkit mols, missing labels, etc)
         josh will always use this to access the dataframe and leave the original dataframe alone
         """
-        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
+        mask = self._union_failed_mask(mask_name) if mask_name is not None else list(self._failed.keys())
         return self.dataset.drop(index=mask)
 
     def get_descriptor(self, desc_name, mask_name=None, **kwargs):
-        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
+        mask = self._union_failed_mask(mask_name) if mask_name is not None else list(self._failed.keys())
         return np.delete(self.descriptor.get_descriptor_value(desc_name, self.dataset, **kwargs), mask, axis=0)
 
     def get_label(self, mask_name=None):
-        mask = self._union_failed_mask(mask_name) if mask_name is not None else self._failed.keys()
+        mask = self._union_failed_mask(mask_name) if mask_name is not None else list(self._failed.keys())
         return np.delete(self.get_labels(self._active_label), mask, axis=0)
 
     def get_labels(self, kind):

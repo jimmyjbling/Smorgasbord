@@ -181,7 +181,7 @@ class DatasetDescriptorCalculator(DescriptorCalculator):
 
     def get_string(self, name):
         args = self.get_descriptor_args(name)
-        return "_".join([name] + [f'{key}:{val}' for key, val in args.items()])
+        return "|".join([name] + [f'{key}:{val}' for key, val in args.items()])
 
     @property
     def cache(self):

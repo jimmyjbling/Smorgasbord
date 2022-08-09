@@ -13,10 +13,8 @@ def threshold(y_pred, thresh=0.5):
 
 
 def confusion_mat(y_true, y_pred):
-
     if y_pred.dtype == float:
         y_pred = threshold(y_pred)
-
     return confusion_matrix(y_true=y_true, y_pred=y_pred)
 
 

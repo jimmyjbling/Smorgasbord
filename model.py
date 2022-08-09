@@ -6,37 +6,40 @@ from torch import nn
 #  not to self I think using the sklearn api and building custom models from a given base class should suffice
 
 # TODO need to add wrapper calls for all sklearn models that we want to support by default with auto loading plates
+
+
 class QSARModel:
-    '''
-    def __init__(self, parent, model, name, child, child_name, desc_name, desc_settings, label):
-        self.model = model
-        self.name = name
-        self.desc_name = desc_name
-        self.desc_settings = desc_settings
-        self.parent = parent
-        self.child_name = child_name
-        self.child = child
-        self.label = label
-        self.screening_stats = {}
-    '''
-
-    def fit():
+    def fit(self, X, y):
         raise NotImplementedError
 
-    def predict():
+    def predict(self, X):
         raise NotImplementedError
 
-    def predict_probability():
+    def predict_probability(self, X):
         raise NotImplementedError
 
-    def to_dict(self):
+    def get_params(self):
         raise NotImplementedError
 
-    def to_string(self):
-        #should return a friendly (lowercase with underscores) description of model name + parameters
-        #e.g. random_forest_100 for rf with 100 trees
 
-        raise NotImplementedError
+class RandomForestClassifier(QSARModel):
+    def __init__(self, **kwargs):
+        from sklearn.ensemble import RandomForestClassifier as RFC
+        self._args = kwargs
+        self.model = RFC(**kwargs)
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def predict_probability(self, X):
+        return self.model.predict_proba(X)
+
+    def get_params(self):
+        return self._args
+
 
 class RF(QSARModel):
 

@@ -4,6 +4,10 @@ from metrics import get_default_classification_metrics, get_default_regression_m
 class Procedure:
     def __init__(self, metrics=None, report=False, output_dir=None, random_state=None):
         self._random_state = random_state
+        if self._random_state is not None:
+            self._shuffle = True
+        else:
+            self._shuffle = False
         self.report = report
         self.metrics = metrics
         self.output_dir = output_dir
@@ -11,7 +15,7 @@ class Procedure:
     # this function takes in kwargs because the way I make the plates run it will always pass dataset and samp func
     #  kwargs will allow this to work without an argument error (rusty and bad practice sure, but it works)
     def screen(self, model, descriptor_func, screening_dataset, **kwargs):
-        screening_X = screening_dataset.get_descriptor_value(descriptor_func)
+        screening_X = screening_dataset.get_descriptor(descriptor_func)
 
         if "predict_proba" in dir(model) and callable(model.__getattribute__("predict_proba")):
             res = model.predict_proba(screening_X)
@@ -23,13 +27,13 @@ class Procedure:
     def train(self, model, dataset, descriptor_func, sampling_func):
 
         y = dataset.get_label(mask_name=sampling_func)
-        X = dataset.get_descriptor_value(descriptor_func, mask_name=sampling_func)
+        X = dataset.get_descriptor(descriptor_func, mask_name=sampling_func)
 
         model.fit(X, y)
 
         return {model: None}
 
-    def train_and_screen(self, dataset, sampling_func, model, descriptor_func, screening_dataset):
+    def train_and_screen(self, dataset, sampling_func, model, descriptor_func, screening_dataset, **kwargs):
         self.train(model=model, dataset=dataset, descriptor_func=descriptor_func, sampling_func=sampling_func)
         return self.screen(model=model, descriptor_func=descriptor_func, screening_dataset=screening_dataset)
 
@@ -73,15 +77,20 @@ class Procedure:
         if cv is None:
             from sklearn.model_selection import StratifiedKFold
             cv = StratifiedKFold
+        else:
+            from sklearn import model_selection
+            if cv in dir(model_selection):
+                cv = model_selection.__dict__[cv]
 
         kwargs["random_state"] = self._random_state
+        kwargs["shuffle"] = self._shuffle
 
         s = cv(**kwargs)
 
         cv_models = {}
 
         y = dataset.get_label(mask_name=sampling_func)
-        X = dataset.get_descriptor_value(descriptor_func, mask_name=sampling_func)
+        X = dataset.get_descriptor(descriptor_func, mask_name=sampling_func)
 
         for train_index, test_index in s.split(X, y):
             X_train, X_test = X[train_index], X[test_index]
@@ -91,10 +100,10 @@ class Procedure:
 
             model_copy.fit(X, y)
 
-            if "predict_proba" in dir(model) and callable(model.__getattribute__("predict_proba")):
-                y_pred = model.predict_proba(X_test)
+            if "predict_proba" in dir(model_copy) and callable(model_copy.__getattribute__("predict_proba")):
+                y_pred = model_copy.predict_proba(X_test)
             else:
-                y_pred = model.predict(X_test)
+                y_pred = model_copy.predict(X_test)
 
             res = self._eval(y_test, y_pred)
 

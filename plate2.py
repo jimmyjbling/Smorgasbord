@@ -7,7 +7,6 @@ from functools import partial
 
 from dataset import QSARDataset, ScreeningDataset
 from descriptor import DescriptorCalculator
-from sampling import Sampler
 from procedure import Procedure
 
 
@@ -116,14 +115,14 @@ class Plate:
         dummy_calc = self.datasets[0].descriptor if len(self.datasets) > 0 else DescriptorCalculator()
         signature = inspect.signature(dummy_calc.get_descriptor_func(descriptor_name))
         default_args = {k: v.default for k, v in signature.parameters.items() if v.default is not inspect.Parameter.empty}
-        kwargs = default_args.update(kwargs)
+        default_args.update(kwargs)
 
-        self.descriptor_functions.append((descriptor_name, kwargs))
+        self.descriptor_functions.append((descriptor_name, default_args))
 
     def add_sampling_method(self, sampling_method, sampling_func=None):
-        if all([d.sampler.func_exists(sampling_method) for d in self.datasets]):
-            self.sampling_methods.append(sampling_method)
-        else:
+        if sampling_method == "None":
+            sampling_method = None
+        elif not all([d.sampler.func_exists(sampling_method) for d in self.datasets]):
             # check if you can find a matching sampling function in any of the dataset and if so use that
             if sampling_func is None:
                 sampling_func = self._find_sample_func(sampling_method)
@@ -131,8 +130,9 @@ class Plate:
             if sampling_func is not None:
                 [d.sampler.add_sampling_func(sampling_method, sampling_func) for d in self.datasets]
             else:
-                raise ValueError(f"Descriptor function {sampling_method} does not exist for "
+                raise ValueError(f"sampling function {sampling_method} does not exist for "
                                  f"all currently loaded datasets")
+        self.sampling_methods.append(sampling_method)
 
     def add_procedures(self, procedure, **kwargs):
         if procedure in dir(self.procedure) and callable(self.procedure.__getattribute__(procedure)):
@@ -196,11 +196,13 @@ class Plate:
 
         from tqdm import tqdm
         # calculate descriptors for every dataset first
-        for dataset, (desc_func, kwargs) in tqdm(product(self.datasets, self.descriptor_functions)):
+        desc_combos = product(self.datasets, self.descriptor_functions)
+        for dataset, (desc_func, kwargs) in tqdm(desc_combos):
             dataset.get_descriptor(desc_func, **kwargs)
 
         # calculate sampling masks for everyone next
-        for dataset, samp_func in tqdm(product(self.datasets, self.sampling_methods)):
+        samp_combos = product(self.datasets, self.sampling_methods)
+        for dataset, samp_func in tqdm(samp_combos):
             dataset.balance(samp_func)
 
         # now run all the procedures
@@ -208,8 +210,8 @@ class Plate:
 
         overall_results = {}
 
-        for dataset, model, desc_func, samp_func, proc in tqdm(combos):
-            res = proc(moodel=model, dataset=dataset, descriptor_func=desc_func, sampling_func=samp_func)
+        for dataset, model, (desc_func, kwargs), samp_func, proc in tqdm(combos):
+            res = proc(model=model, dataset=dataset, descriptor_func=desc_func, sampling_func=samp_func)
 
             overall_results[(dataset, model, desc_func, samp_func, proc)] = res
 
@@ -281,7 +283,7 @@ class Plate:
 
         for model_dict in model_dicts:
             args = model_dict["args"] if model_dict["args"] is not None else {}
-            self.add_model(self._get_model(**args))
+            self.add_model(self._get_model(model_dict["Name"], **args))
 
         for descriptor_dict in descriptor_dicts:
             args = descriptor_dict["args"] if descriptor_dict["args"] is not None else {}
@@ -294,6 +296,9 @@ class Plate:
             if isinstance(procedure_dict, dict):
                 proc_name = list(procedure_dict.keys())[0]
                 proc_args = procedure_dict[proc_name] if procedure_dict[proc_name] is not None else {}
+
+                if "screen" in proc_name:
+                    proc_args["screening_dataset"] = ScreeningDataset(**proc_args)
                 self.add_procedures(proc_name, **proc_args)
             else:
                 self.add_procedures(procedure_dict)
@@ -308,11 +313,11 @@ class Plate:
 
     @staticmethod
     def _to_string(dataset, model, desc_func, samp_func, proc):
-        return "_".join([dataset.name, dataset.descriptor.get_string(desc_func), samp_func, model.__name__,  proc.__name__])
+        return "_".join([dataset.name, dataset.descriptor.get_string(desc_func), str(samp_func), type(model).__name__,  proc.func.__func__.__name__])
 
     def _check_for_results(self, overall_results):
         if overall_results is None:
-            if overall_results in self.__dict__ and self.overall_results is not None:
+            if "overall_results" in vars(self) and self.overall_results is not None:
                 overall_results = self.overall_results
             else:
                 raise ValueError("plate has no results")
@@ -328,17 +333,17 @@ class Plate:
 
         for dataset, model, desc_func, samp_func, proc in overall_results.keys():
             header = self._to_string(dataset, model, desc_func, samp_func, proc)
-            print(header)
             res = overall_results[(dataset, model, desc_func, samp_func, proc)]
 
             # skip procs that do not have metrics associated with them
-            if None in res.keys() or None in res.values():  # skips only training
-                continue
             if isinstance(proc, partial) and "screening_dataset" in proc.keywords:  # skips screening
                 continue
+            if None in res.keys() or None in res.values():  # skips only training
+                continue
+            print(header)
 
             for fold, (model, res) in enumerate(res.items()):
-                print(f"FOLD {fold}:  {' | '.join([f'{str(key)}: {str(val)}' for key, val in res.items()])}")
+                print(f"FOLD {fold}:  {' | '.join([f'{str(key)}: {str(val)}' for key, val in res[-1].items()])}")
             print("\n-------------------------------------------------------------------\n")
 
     def results_to_csv(self, overall_results=None):
@@ -375,3 +380,8 @@ class Plate:
     def output_dir(self):
         self._output_dir = os.path.join(os.getcwd(), str(datetime.now()))
         self.procedure.output_dir = self._output_dir
+
+
+plate = Plate()
+plate.from_yaml("example_plate.yaml")
+plate.run(print_output=True)
