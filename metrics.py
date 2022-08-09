@@ -12,9 +12,16 @@ def threshold(y_pred, thresh=0.5):
     return np.where(y_pred >= thresh, 1, 0)
 
 
-def confusion_mat(y_true, y_pred):
+def binary_confusion_mat(y_true, y_pred):
     if y_pred.dtype == float:
         y_pred = threshold(y_pred)
+    if len(set(y_pred)) == 1:
+        if y_pred[0] == 0:
+            return np.array([[len(y_pred), 0], [0, 0]])
+        elif y_pred[0] == 1:
+            return np.array([[0, 0], [0, len(y_pred)]])
+        else:
+            raise ValueError("prediction is not binary [0, 1]")
     return confusion_matrix(y_true=y_true, y_pred=y_pred)
 
 
@@ -22,11 +29,12 @@ def ppv(y_true, y_pred):
     if y_pred.dtype == float:
         y_pred = threshold(y_pred)
 
+    # ppv is undefined if there is no positive class in real and pred
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == 0:
             return math.nan
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return tp / (tp + fp)
 
 
@@ -34,13 +42,12 @@ def npv(y_true, y_pred):
     if y_pred.dtype == float:
         y_pred = threshold(y_pred)
 
+    # npv is undefined if no negative classes exist in real and pred
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return math.nan
-        else:
-            return 1
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return tn / (tn + fn)
 
 
@@ -50,11 +57,11 @@ def sensitivity(y_true, y_pred):
 
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
-            return 1
+            return 1.
         else:
             return math.nan
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return tp / (tp + fn)
 
 
@@ -66,9 +73,9 @@ def specificity(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return math.nan
         else:
-            return 1
+            return 1.
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return tn / (tn + fp)
 
 
@@ -77,9 +84,9 @@ def accuracy(y_true, y_pred):
         y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
-        return 1
+        return 1.
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return (tn + tp) / (tp + tn + fp + fn)
 
 
@@ -88,9 +95,9 @@ def balanced_accuracy(y_true, y_pred):
         y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
-        return 1
+        return 1.
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return ((tn / (tn + fp)) + (tp / (tp + fn))) / 2
 
 
@@ -99,9 +106,9 @@ def f1(y_true, y_pred):
         y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
-        return 1
+        return 1.
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return (2 * tp) / ((2 * tp) + fn + fp)
 
 
@@ -112,7 +119,7 @@ def mcc(y_true, y_pred):
     if np.array_equal(y_true, y_pred):
         return math.nan
 
-    tn, fp, fn, tp = confusion_matrix(y_true=y_true, y_pred=y_pred).ravel()
+    tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
 
     with np.errstate(invalid = 'raise'):
         try:
