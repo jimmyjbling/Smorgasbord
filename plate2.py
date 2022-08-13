@@ -116,8 +116,9 @@ class Plate:
         signature = inspect.signature(dummy_calc.get_descriptor_func(descriptor_name))
         default_args = {k: v.default for k, v in signature.parameters.items() if v.default is not inspect.Parameter.empty}
         default_args.update(kwargs)
+        total_arguments = default_args
 
-        self.descriptor_functions.append((descriptor_name, default_args))
+        self.descriptor_functions.append((descriptor_name, total_arguments))
 
     def add_sampling_method(self, sampling_method, sampling_func=None):
         if sampling_method == "None":
@@ -153,7 +154,7 @@ class Plate:
     def set_dataset_label(self, label_class):
         if all([label_class in d.get_existing_labels() for d in self.datasets]):
             for d in self.datasets:
-                d.set_active_label(label_class)
+                d.set_desired_label(label_class)
         else:
             raise ValueError(f"Datasets on plate do not all have label of type {label_class}")
 
@@ -279,6 +280,7 @@ class Plate:
 
         for dataset_dict in dataset_dicts:
             args = dataset_dict["args"] if dataset_dict["args"] is not None else {}
+            # TODO desired label
             self.add_dataset(QSARDataset(**args))
 
         for model_dict in model_dicts:
@@ -294,6 +296,7 @@ class Plate:
 
         for procedure_dict in procedure_dicts:
             if isinstance(procedure_dict, dict):
+                # TODO wtf this aint right
                 proc_name = list(procedure_dict.keys())[0]
                 proc_args = procedure_dict[proc_name] if procedure_dict[proc_name] is not None else {}
 

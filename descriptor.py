@@ -9,6 +9,7 @@ from rdkit.DataStructs import ConvertToNumpyArray
 #  own. This would make collecting args and building plates easier at the cost making the descriptors alot less user
 #  friendly and alot more class heavy
 
+
 class DescriptorCalculator:
     # Note all descriptor methods need to be able to handle failures by returning numpy nans for that row
     def __init__(self):
@@ -141,7 +142,7 @@ class DatasetDescriptorCalculator(DescriptorCalculator):
     def _calculate_descriptor(self, name, df, **kwargs):
         desc = self.get_descriptor_func(name)(df, **kwargs)
         if self._cache:
-            self.__setattr__(name, (kwargs, self.get_descriptor_func(name)(df, **kwargs)))
+            self.__setattr__(name, (kwargs, desc))
         return desc
 
     # When try to get descriptors from the dataset object, you should always interface with this function to get them

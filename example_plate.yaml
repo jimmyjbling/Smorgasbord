@@ -24,10 +24,15 @@ Procedures:
 - cross_validate:
     cv: StratifiedKFold
     n_splits: 8
+- train_with_test:
 - train_and_screen:
     filepath: C:\Users\welln\OneDrive\TropshaLab\Projects\Smorgasbord\SDF-FOR-MODI\MDR1.sdf
     curation: None
     model_file: C:\Users\welln\OneDrive\TropshaLab\Projects\Smorgasbord\SDF-FOR-MODI\model.pkl
+- screen:
+    filepath: C:\Users\welln\OneDrive\TropshaLab\Projects\Smorgasbord\SDF-FOR-MODI\MDR1.sdf
+- screen:
+    filepath: C:\Users\welln\OneDrive\TropshaLab\Projects\Smorgasbord\SDF-FOR-MODI\MDR2.sdf
 
 Sampling Methods:
 - None

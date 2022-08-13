@@ -21,6 +21,8 @@ class QSARModel:
     def get_params(self):
         raise NotImplementedError
 
+    # TODO is classififer and is regressor
+
 
 class RandomForestClassifier(QSARModel):
     def __init__(self, **kwargs):

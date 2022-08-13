@@ -6,6 +6,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
 # TODO need to clean this puppy up
+# TODO fix things lol
 
 
 def threshold(y_pred, thresh=0.5):
@@ -57,7 +58,7 @@ def sensitivity(y_true, y_pred):
 
     if np.array_equal(y_true, y_pred):
         if sum(y_true) == len(y_true):
-            return 1.
+            return 1.0
         else:
             return math.nan
 
@@ -73,7 +74,7 @@ def specificity(y_true, y_pred):
         if sum(y_true) == len(y_true):
             return math.nan
         else:
-            return 1.
+            return 1.0
 
     tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return tn / (tn + fp)
@@ -84,7 +85,7 @@ def accuracy(y_true, y_pred):
         y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
-        return 1.
+        return 1.0
 
     tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return (tn + tp) / (tp + tn + fp + fn)
@@ -95,7 +96,7 @@ def balanced_accuracy(y_true, y_pred):
         y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
-        return 1.
+        return 1.0
 
     tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return ((tn / (tn + fp)) + (tp / (tp + fn))) / 2
@@ -106,7 +107,7 @@ def f1(y_true, y_pred):
         y_pred = threshold(y_pred)
 
     if np.array_equal(y_true, y_pred):
-        return 1.
+        return 1.0
 
     tn, fp, fn, tp = binary_confusion_mat(y_true=y_true, y_pred=y_pred).ravel()
     return (2 * tp) / ((2 * tp) + fn + fp)
@@ -156,8 +157,8 @@ def get_default_regression_metrics():
         mean_absolute_error
     ]
 
-def get_classification_metrics(y_true, y_pred):
 
+def get_classification_metrics(y_true, y_pred):
     return {
         "ppv": ppv(y_true, y_pred),
         "npv": npv(y_true, y_pred),
