@@ -34,9 +34,9 @@ def nearest_neighbors(reference, query, k=1, self_query=False, return_distance=F
     tree = sp.KDTree(reference)
 
     if self_query:
-        k = [x+2 for x in range(k)]
+        k = [x + 2 for x in range(k)]
     else:
-        k = [x+1 for x in range(k)]
+        k = [x + 1 for x in range(k)]
 
     d, i = tree.query(query, k=k, workers=-1)
 
@@ -315,7 +315,7 @@ def get_finger_bit_substructure(mol, bit, nbits=2048, radius=3, chiral=False):
 
     if bit not in bi.keys():
         return None
-    
+
     sub_mol_smarts = []
     sub_mols = []
 
@@ -344,7 +344,7 @@ def get_finger_bit_substructure(mol, bit, nbits=2048, radius=3, chiral=False):
         # covert into sub mol and save index map
         atom_map = {}
         sub_mol = Chem.PathToSubmol(mol, enlarged_env, atomMap=atom_map)
-        
+
         # covert the atoms to dummy atoms if they were added to only get their bonds
         for map_idx in atom_map.keys():
             if map_idx not in atom_idx:
@@ -355,3 +355,96 @@ def get_finger_bit_substructure(mol, bit, nbits=2048, radius=3, chiral=False):
         sub_mols.append(sub_mol)
 
     return sub_mol_smarts, sub_mols
+
+
+def smote(X, y):
+    """
+    Implement the SMOTE method to balance your dataset. This method of balancing is not compatible with plates
+
+    SMOTE and variations of it will create new artificial data in an attempt to augment a dataset. This data
+    will then lack a real chemical structure that associated with it (creates new descriptors not new smiles).
+    The entire point of Smorgasbord and the plate approach is that the data has known chemicals behind them.
+    Since SMOTE violates this it cannot be used inside the vanilla plate workflow and can only be used in manual
+    workflow processes. It is unadvised to use it for chemical data for that aforementioned reasons
+
+    Parameters
+    ----------
+        X: array-like 2D
+            array of data to sample from
+        y: array-like 1D
+            array of labels for given data to determine what to sample from
+
+    Returns
+    ----------
+        X: array-like 2D
+            array of resampled data
+        y: array-like 1D
+            array of resembled labels
+    """
+    from imblearn.over_sampling import SMOTE
+
+    sm = SMOTE(random_state=42)
+    X_res, y_res = sm.fit_resample(X, y)
+
+    return X_res, y_res
+
+
+def LoadSDF(filename, idName='ID', molColName='ROMol', includeFingerprints=False,
+            isomericSmiles=True, smilesName=None, embedProps=False, removeHs=True,
+            strictParsing=True):
+    '''
+    Read file in SDF format and return as Pandas data frame.
+    If embedProps=True all properties also get embedded in Mol objects in the molecule column.
+    If molColName=None molecules would not be present in resulting DataFrame (only properties
+    would be read).
+    '''
+
+    from rdkit import Chem
+    from rdkit.Chem.PandasTools import _MolPlusFingerprint, RenderImagesInAllDataFrames
+    import pandas as pd
+    from logging import log
+
+    if isinstance(filename, str):
+        if filename.lower()[-3:] == ".gz":
+            import gzip
+            f = gzip.open(filename, "rb")
+        else:
+            f = open(filename, 'rb')
+        close = f.close
+    else:
+        f = filename
+        close = None  # don't close an open file that was passed in
+    records = []
+    indices = []
+    sanitize = bool(molColName is not None or smilesName is not None)
+    for i, mol in enumerate(
+            Chem.ForwardSDMolSupplier(f, sanitize=sanitize, removeHs=removeHs,
+                                      strictParsing=strictParsing)):
+        if mol is None:
+            print("Shit")
+            continue
+        row = dict((k, mol.GetProp(k)) for k in mol.GetPropNames())
+        if molColName is not None and not embedProps:
+            for prop in mol.GetPropNames():
+                mol.ClearProp(prop)
+        if mol.HasProp('_Name'):
+            row[idName] = mol.GetProp('_Name')
+        if smilesName is not None:
+            try:
+                row[smilesName] = Chem.MolToSmiles(mol, isomericSmiles=isomericSmiles)
+            except Exception:
+                log.warning('No valid smiles could be generated for molecule %s', i)
+                row[smilesName] = None
+        if molColName is not None and not includeFingerprints:
+            row[molColName] = mol
+        elif molColName is not None:
+            row[molColName] = _MolPlusFingerprint(mol)
+        records.append(row)
+        indices.append(i)
+
+    if close is not None:
+        close()
+    RenderImagesInAllDataFrames(images=True)
+    return pd.DataFrame(records, index=indices)
+
+LoadSDF(f"C:\\Users\\welln\\OneDrive\\TropshaLab\\Projects\\Smorgasbord\\SDF-FOR-MODI\\DRASTIC\\{1}.sdf")

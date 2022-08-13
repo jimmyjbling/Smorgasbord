@@ -1,0 +1,57 @@
+Datasets:
+- Arguments:
+    curation: null
+    cutoff: 4.5
+    delimiter: "\t"
+    desired_label: null
+    filepath: test_data/logp.tsv
+    label: continuous
+    label_col: Kowwin
+    mixture: false
+    mixture_columns: null
+    smiles_col: Canonical_QSARr
+    unit_col: null
+  File Hash: 63a9f81b961c3250f5cd0c82f65507e665343ee34c7a14d93185ca79366f4599
+  Filepath: test_data/logp.tsv
+  Label: continuous
+  Label Column: Kowwin
+  Name: logp.tsv
+  SMILES Column: Canonical_QSARr
+- Arguments:
+    curation: null
+    cutoff: 4.5
+    delimiter: ','
+    desired_label: null
+    filepath: test_data/short.csv
+    label: continuous
+    label_col: 1
+    mixture: false
+    mixture_columns: null
+    smiles_col: 0
+    unit_col: null
+  File Hash: 6fc681078a6ffd1ee4a720732a4251f63789027b76029ecc34db4f098ba3d7ff
+  Filepath: test_data/short.csv
+  Label: continuous
+  Label Column: ' label'
+  Name: short.csv
+  SMILES Column: smiles
+Descriptor Functions:
+- Name: MorganDecriptor
+  count: false
+  n_bits: 2048
+  radius: 3
+  use_cached: false
+  use_chirality: false
+Metadata:
+  Date: '2022-07-25 18:21:40.083243'
+  User: welln
+Models:
+- Arguments:
+    n_estimators: 100
+  Name: Random Forest
+Procedures:
+- 5-Fold CV
+- Train
+Sampling Methods:
+- None
+- Oversampling
