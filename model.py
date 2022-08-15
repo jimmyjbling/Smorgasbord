@@ -1,11 +1,50 @@
+import numpy as np
 from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 # TODO instead of a wrapper class could I just set attributes of the passed model?
 #  not to self I think using the sklearn api and building custom models from a given base class should suffice
 
 # TODO need to add wrapper calls for all sklearn models that we want to support by default with auto loading plates
+from qsar_utils import modi
+
+
+def default(dictionary, key, default_val):
+    if key not in dictionary.keys():
+        return default_val
+    else:
+        return dictionary[key]
+
+
+class XYDataset(Dataset):
+    """
+    Generic torch dataset for a dataframe to use with a loader
+    """
+    def __init__(self, X, y):
+        self.y = y
+        self.X = X
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]
+
+
+class XDataset(Dataset):
+    """
+    Generic torch dataset for a dataframe to use with a loader
+    """
+    def __init__(self, X):
+        self.X = X
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx]
 
 
 class QSARModel:
@@ -21,7 +60,11 @@ class QSARModel:
     def get_params(self):
         raise NotImplementedError
 
-    # TODO is classififer and is regressor
+    def is_classifier(self):
+        raise NotImplementedError
+
+    def is_regressor(self):
+        raise NotImplementedError
 
 
 class RandomForestClassifier(QSARModel):
@@ -42,73 +85,185 @@ class RandomForestClassifier(QSARModel):
     def get_params(self):
         return self._args
 
+    def is_classifier(self):
+        return True
 
-class RF(QSARModel):
-
-    def __init__(self, n_estimators = 100, **kwargs):
-
-        self.stored_args = {}
-        self.stored_args["n_estimators"] = n_estimators
-        for key, value in kwargs.items():
-            self.stored_args[key] = value
-
-        self.name = "Random Forest"
+    def is_regressor(self):
+        return False
 
 
-        from sklearn.ensemble import RandomForestClassifier
+class RandomForestRegressor(QSARModel):
+    def __init__(self, **kwargs):
+        from sklearn.ensemble import RandomForestRegressor as RFR
+        self._args = kwargs
+        self.model = RFR(**kwargs)
 
-        self.model = RandomForestClassifier(n_estimators = n_estimators, **kwargs)
+    def fit(self, X, y):
+        self.model.fit(X, y)
 
-    def fit(self, x, y):
+    def predict(self, X):
+        return self.model.predict(X)
 
-        self.model.fit(x, y)
+    def get_params(self):
+        return self._args
 
-    def predict_probability(self, x):
+    def is_classifier(self):
+        return False
 
-        try:
-            active_probability = (self.model.predict_proba(x)[:, 1])
-        except:
-            active_probability = (1 - self.model.predict_proba(x)[:, 0])
-
-        return active_probability
-
-    def to_dict(self):
-        d = {}
-        d["Name"] = self.name
-        d["Arguments"] = self.stored_args
-        return d
-
-    def get_string(self):
-
-        return "random_forest_" + str(self.stored_args["n_estimators"])
-class XYDataset(Dataset):
-    def __init__(self, X, y):
-        self.y = y
-        self.X = X
-
-    def __len__(self):
-        return len(self.img_labels)
-
-    def __getitem__(self, idx):
-        return X[idx], label[idx]
+    def is_regressor(self):
+        return True
 
 
-class MODIdeep:
-    def __init__(self, in_feats, hidden_feats, out_feats=1):
+class DecisionTreeClassifier(QSARModel):
+    def __init__(self, **kwargs):
+        from sklearn.tree import DecisionTreeClassifier as DTC
+        self._args = kwargs
+        self.model = DTC(**kwargs)
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def predict_probability(self, X):
+        return self.model.predict_proba(X)
+
+    def get_params(self):
+        return self._args
+
+    def is_classifier(self):
+        return True
+
+    def is_regressor(self):
+        return False
+
+
+class DecisionTreeRegressor(QSARModel):
+    def __init__(self, **kwargs):
+        from sklearn.tree import DecisionTreeRegressor as DTR
+        self._args = kwargs
+        self.model = DTR(**kwargs)
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def get_params(self):
+        return self._args
+
+    def is_classifier(self):
+        return False
+
+    def is_regressor(self):
+        return True
+
+
+class MLP(QSARModel, nn.Module):
+    def __init__(self, **kwargs):
         super().__init__()
-        self.norm = nn.LayerNorm(in_feats)
-        self.layer1 = nn.Linear(in_feats, hidden_feats)
-        self.layer2 = nn.Linear(hidden_feats, out_feats)
-        self.loss = nn.BCEWithLogitsLoss
-        self.optimizer = nn.Adam()
+        self._args = kwargs
+        self.norm = nn.LayerNorm
+        self.layer1 = nn.Linear
+        self.layer2 = nn.Linear
+        self.layer3 = nn.Linear
+
+        self.optim = torch.optim.Adam(self.parameters(), lr=default(self._args, "lr", 0.003))
+        self.loss = None
+
+    def fit(self, X, y):
+        self.train()
+        self._args["input_dim"] = X.shape[1]
+        self._args["output_dim"] = y.shape[1] if len(y.shape) > 1 else 1
+        self.norm = self.norm(self._args["input_dim"])
+        self.layer1 = self.layer1(self._args["input_dim"], self._args["hidden_dim"])
+        self.layer2 = self.layer2(self._args["hidden_dim"], self._args["hidden_dim"])
+        self.layer3 = self.layer3(self._args["hidden_dim"], self._args["output_dim"])
+
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        loader = DataLoader(XYDataset(X, y), batch_size=default(self._args, "batch_size", X.shape[0]))
+
+        training_loss = []
+        for epoch in range(default(self._args, "epochs", 300)):
+            for batch in loader:
+                output = self(batch[0].float().to(device))
+                l = self.loss(output, batch[1].float().to(device))
+                self.optim.zero_grad()
+                l.backward()
+                self.optim.step()
+                training_loss.append(l.item)
 
     def forward(self, x):
         x = self.norm(x)
         x = self.layer1(x)
-        x = nn.ReLU(x)
+        x = F.relu(x)
         x = self.layer2(x)
-
+        x = F.relu(x)
+        x = self.layer3(x)
         return x
+
+    def predict(self, X):
+        self.eval()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        loader = DataLoader(XDataset(X), batch_size=default(self._args, "batch_size", X.shape[0]))
+
+        with torch.no_grad():
+            running_output = np.array([])
+            for batch in loader:
+                running_output = np.concatenate(
+                    (running_output, self(batch[0].float().to(device)).cpu().detach().numpy()))
+
+        return running_output
+
+    def get_params(self):
+        return self._args
+
+    def is_classifier(self):
+        return True
+
+    def is_regressor(self):
+        return True
+
+
+class MLPClassifier(MLP, nn.Module):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.loss = nn.BCEWithLogitsLoss()
+
+    def is_regressor(self):
+        return False
+
+
+class MLPRegressor(MLP, nn.Module):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.loss = nn.MSELoss()
+
+    def is_classifier(self):
+        return False
+
+
+class MODIdeep(QSARModel, nn.Module):
+    def __init__(self, **kwargs):
+        super().__init__()
+        self._args = kwargs
+
+        self.norm = nn.LayerNorm
+        self.layer1 = nn.Linear
+        self.layer2 = nn.Linear
+
+        self.loss = nn.BCEWithLogitsLoss()
+        self.optim = torch.optim.Adam(self.parameters(), lr=default(self._args, "lr", 0.003))
+
+    def forward(self, x):
+        x = self.norm(x)
+        x1 = self.layer1(x)
+        x2 = F.relu(x1)
+        x3 = self.layer2(x2)
+
+        return x, x2, x3
 
     def latent_modi(self, x, y):
         x = self.norm(x)
@@ -116,38 +271,49 @@ class MODIdeep:
 
         pre_activation_modi = modi(x, y)
 
-        x = nn.ReLU(x)
+        x = F.relu(x)
 
         post_activation_modi = modi(x, y)
 
         return pre_activation_modi, post_activation_modi
 
     def fit(self, X, y):
-        dataset = XYDataset(X, y)
-        loader = DataLoader(dataset, batch_size=200)
         self.train()
+        self._args["input_dim"] = X.shape[1]
+        self._args["output_dim"] = y.shape[1] if len(y.shape) > 1 else 1
+        self.norm = self.norm(self._args["input_dim"])
+        self.layer1 = self.layer1(self._args["input_dim"], self._args["hidden_dim"])
+        self.layer2 = self.layer2(self._args["hidden_dim"], self._args["output_dim"])
+
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        dataset = XYDataset(X, y)
+        loader = DataLoader(dataset, batch_size=default(self._args, "batch_size", X.shape[0]))
+
+        self.to(device)
+
         for epoch in range(300):
             for i, batch in enumerate(loader):
-                outputs = self.step(batch=batch[0])
+                outputs = self.step(batch=batch[0].to(device))
 
-                l = loss(outputs, batch[1])
+                l = self.loss(outputs, batch[1].to(device))
 
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 l.backward()
-                optimizer.step()
+                self.optimizer.step()
 
-            if epoch % 25 == 0:
-                print(f"{epoch} loss: {l.item()}")
-
-    def predict(self, X, y):
-        dataset = XYDataset(X, y)
-        loader = DataLoader(dataset, batch_size=200)
+    def predict(self, X):
         self.eval()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        dataset = XDataset(X)
+        loader = DataLoader(dataset, batch_size=default(self._args, "batch_size", X.shape[0]))
+
+        self.to(device)
+
         preds = []
         with torch.no_grad():
             for i, batch in enumerate(loader):
                 self.train()
                 outputs = self.step(batch=batch["X"])
-                preds += nn.functional.sigmoid(outputs).tolist()
-                l = loss(outputs, batch["y"], batch["num_lig_atoms"])
-        return stats
+                preds += F.sigmoid(outputs).cpu().detach().tolist()
+
+        return np.array(preds)

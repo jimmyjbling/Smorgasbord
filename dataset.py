@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem.PandasTools import LoadSDF
-from collections import Counter
 from descriptor import DatasetDescriptorCalculator
 from sampling import DatasetSampler
 import hashlib
