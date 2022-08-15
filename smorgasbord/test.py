@@ -1,7 +1,6 @@
 import unittest
 import math
 import glob
-import numpy as np
 
 
 class TestBasic(unittest.TestCase):
@@ -89,9 +88,9 @@ class TestDataset(unittest.TestCase):
 
     def setUp(self):
 
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath = "test_data/short.csv",
+        dataset = QSARDataset(filepath ="../test_data/short.csv",
                               delimiter = ",",
                               curation = None,
                               label = "continuous",
@@ -113,9 +112,9 @@ class TestModeling(unittest.TestCase):
 
     def test_working(self):
 
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath = "test_data/short.csv",
+        dataset = QSARDataset(filepath ="../test_data/short.csv",
                               delimiter = ",",
                               label = "continuous",
                               label_col = 1,
@@ -146,9 +145,9 @@ class TestModeling(unittest.TestCase):
 
     def test_logp(self):
 
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath = "test_data/logp.tsv",
+        dataset = QSARDataset(filepath ="../test_data/logp.tsv",
                               delimiter = "\t",
                               curation = None,
                               label = "continuous",
@@ -180,15 +179,13 @@ class TestModeling(unittest.TestCase):
         print("AUC: ", auc(true_labels, pred))
         pred = np.array([int(x > 0.5) for x in pred], dtype = int)
 
-
-        import metrics
         stats = get_classification_metrics(true_labels, pred)
         print(stats)
 
 
     def test_biowin(self):
 
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
         filename = "test_data/physprop_Biowin.smi"
         print(filename)
@@ -207,7 +204,6 @@ class TestModeling(unittest.TestCase):
 
         fp = dataset.descriptor.calc_morgan(clean_dataset, count = True)
 
-        import numpy as np
         true_labels = dataset.get_labels("binary")
 
         model.fit(fp, true_labels)
@@ -227,7 +223,7 @@ class TestModeling(unittest.TestCase):
 
         filenames = glob.glob("test_data/*.smi")
 
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
         for filename in filenames:
             print(filename)
@@ -264,9 +260,9 @@ class TestModeling(unittest.TestCase):
 
     def test_dataset_model(self):
 
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath = "test_data/logp.tsv",
+        dataset = QSARDataset(filepath ="../test_data/logp.tsv",
                               delimiter = "\t",
                               curation = None,
                               label = "continuous",
@@ -283,7 +279,7 @@ class TestCuration(unittest.TestCase):
     def test_benzene(self):
 
         from rdkit import Chem
-        from curate import curate_mol
+        from smorgasbord.curate import curate_mol
 
         mol = Chem.MolFromSmiles("c1ccccc1")
 
@@ -296,7 +292,7 @@ class TestCuration(unittest.TestCase):
     def test_invalid_atom(self):
 
         from rdkit import Chem
-        from curate import curate_mol
+        from smorgasbord.curate import curate_mol
 
         mol = Chem.MolFromSmiles("c1ccccc1([U])")
 
@@ -311,7 +307,7 @@ class TestCuration(unittest.TestCase):
     def test_mixture(self):
 
         from rdkit import Chem
-        from curate import curate_mol
+        from smorgasbord.curate import curate_mol
 
         mol = Chem.MolFromSmiles("c1ccccc1.O")
 
@@ -327,7 +323,7 @@ class TestCuration(unittest.TestCase):
 
     def test_dataset_curate(self):
 
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
         dataset = QSARDataset(filepath = "test_data/physprop_Biowin.smi",
                               delimiter = ",",
@@ -352,31 +348,31 @@ class TestPlate(unittest.TestCase):
 
     def test_init(self):
 
-        from plate import Plate
+        from old.plate import Plate
 
         this_plate = Plate()
 
     def test_to_yaml(self):
 
-        from plate import Plate
-        from dataset import QSARDataset
+        from old.plate import Plate
+        from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath = "test_data/logp.tsv",
-                              delimiter = "\t",
-                              curation = None,
-                              label = "continuous",
-                              label_col = "Kowwin",
-                              smiles_col = "Canonical_QSARr",
-                              cutoff = 4.5)
+        dataset1 = QSARDataset(filepath ="../test_data/logp.tsv",
+                               delimiter = "\t",
+                               curation = None,
+                               label = "continuous",
+                               label_col = "Kowwin",
+                               smiles_col = "Canonical_QSARr",
+                               cutoff = 4.5)
 
 
-        dataset2 = QSARDataset(filepath = "test_data/short.csv",
-                              delimiter = ",",
-                              curation = None,
-                              label = "continuous",
-                              label_col = 1,
-                              smiles_col = 0,
-                              cutoff = 4.5)
+        dataset2 = QSARDataset(filepath ="../test_data/short.csv",
+                               delimiter = ",",
+                               curation = None,
+                               label = "continuous",
+                               label_col = 1,
+                               smiles_col = 0,
+                               cutoff = 4.5)
 
 
         this_plate = Plate(datasets= [dataset1, dataset2],
@@ -385,48 +381,48 @@ class TestPlate(unittest.TestCase):
                             sampling_methods = ["None", "Oversampling"],
                             procedures = ["5-Fold CV", "Train"])
 
-        filename = "dummy_plate_out.yaml"
+        filename = "../dummy_plate_out.yaml"
 
         this_plate.to_yaml(filename)
 
     def test_from_yaml(self):
 
-        from plate import Plate
+        from old.plate import Plate
 
-        filename = "dummy_plate_out.yaml"
+        filename = "../dummy_plate_out.yaml"
 
         this_plate = Plate.from_yaml(filename)
 
 
     def test_to_from_yaml(self):
 
-        filename = "dummy_plate_out.yaml"
+        filename = "../dummy_plate_out.yaml"
 
-        from plate import Plate
-        from dataset import QSARDataset
+        from old.plate import Plate
+        from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath = "test_data/logp.tsv",
-                              delimiter = "\t",
-                              curation = None,
-                              label = "continuous",
-                              label_col = "Kowwin",
-                              smiles_col = "Canonical_QSARr",
-                              cutoff = 4.5)
+        dataset1 = QSARDataset(filepath ="../test_data/logp.tsv",
+                               delimiter = "\t",
+                               curation = None,
+                               label = "continuous",
+                               label_col = "Kowwin",
+                               smiles_col = "Canonical_QSARr",
+                               cutoff = 4.5)
 
 
-        dataset2 = QSARDataset(filepath = "test_data/short.csv",
-                              delimiter = ",",
-                              curation = None,
-                              label = "continuous",
-                              label_col = 1,
-                              smiles_col = 0,
-                              cutoff = 4.5)
+        dataset2 = QSARDataset(filepath ="../test_data/short.csv",
+                               delimiter = ",",
+                               curation = None,
+                               label = "continuous",
+                               label_col = 1,
+                               smiles_col = 0,
+                               cutoff = 4.5)
 
         from model import RF
 
         model1 = RF()
 
-        from descriptor import MorganDescriptor
+        from smorgasbord.descriptor import MorganDescriptor
         descriptor1 = MorganDescriptor()
 
         this_plate = Plate(datasets= [dataset1, dataset2],
@@ -442,28 +438,28 @@ class TestPlate(unittest.TestCase):
 
     def test_run(self):
 
-        filename = "dummy_plate_out.yaml"
+        filename = "../dummy_plate_out.yaml"
 
 
-        from plate import Plate
-        from dataset import QSARDataset
+        from old.plate import Plate
+        from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath = "test_data/logp.tsv",
-                              delimiter = "\t",
-                              curation = None,
-                              label = "continuous",
-                              label_col = "Kowwin",
-                              smiles_col = "Canonical_QSARr",
-                              cutoff = 4.5)
+        dataset1 = QSARDataset(filepath ="../test_data/logp.tsv",
+                               delimiter = "\t",
+                               curation = None,
+                               label = "continuous",
+                               label_col = "Kowwin",
+                               smiles_col = "Canonical_QSARr",
+                               cutoff = 4.5)
 
 
-        dataset2 = QSARDataset(filepath = "test_data/short.csv",
-                              delimiter = ",",
-                              curation = None,
-                              label = "continuous",
-                              label_col = 1,
-                              smiles_col = 0,
-                              cutoff = 4.5)
+        dataset2 = QSARDataset(filepath ="../test_data/short.csv",
+                               delimiter = ",",
+                               curation = None,
+                               label = "continuous",
+                               label_col = 1,
+                               smiles_col = 0,
+                               cutoff = 4.5)
 
         filename = "test_data/physprop_Biowin.smi"
         dataset3 = QSARDataset(filepath = filename,
@@ -479,7 +475,7 @@ class TestPlate(unittest.TestCase):
 
         model1 = RF()
 
-        from descriptor import MorganDescriptor
+        from smorgasbord.descriptor import MorganDescriptor
         descriptor1 = MorganDescriptor()
 
         this_plate = Plate(datasets= [dataset3],
@@ -494,18 +490,18 @@ class TestPlate(unittest.TestCase):
 
     def test_herg(self):
 
-        filename = "dummy_plate_out.yaml"
+        filename = "../dummy_plate_out.yaml"
 
 
-        from plate import Plate
-        from dataset import QSARDataset
+        from old.plate import Plate
+        from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath = "test_data/herg.sdf",
-                              delimiter = "\t",
-                              curation = None,
-                              label = "continuous",
-                              label_col = "pIC50",
-                              cutoff = 5)
+        dataset1 = QSARDataset(filepath ="../test_data/herg.sdf",
+                               delimiter = "\t",
+                               curation = None,
+                               label = "continuous",
+                               label_col = "pIC50",
+                               cutoff = 5)
 
         '''
         exit()
@@ -534,7 +530,7 @@ class TestPlate(unittest.TestCase):
 
         model1 = RF()
 
-        from descriptor import MorganDescriptor
+        from smorgasbord.descriptor import MorganDescriptor
         descriptor1 = MorganDescriptor()
 
         this_plate = Plate(datasets= [dataset1],

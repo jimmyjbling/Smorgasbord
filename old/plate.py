@@ -51,7 +51,7 @@ class Plate:
             f.close()
 
     def from_yaml(self, filename, check_file_contents=True):
-        from dataset import QSARDataset
+        from smorgasbord.dataset import QSARDataset
 
         with open(filename, 'r') as f:
             d = yaml.load(f, Loader=yaml.Loader)
@@ -89,8 +89,6 @@ class Plate:
 
             from qsar_utils import modi
             s["MODI"] = modi(descriptor_matrix, labels)
-
-            from sklearn.model_selection import train_test_split
 
             results = []
 
@@ -197,7 +195,7 @@ def threshold_plot(y_true, y_pred, filename, extra_data=None):
 
     print(y_true)
 
-    from metrics import get_classification_metrics, auc, ppv, npv, accuracy, balanced_accuracy
+    from metrics import ppv, npv, accuracy, balanced_accuracy
 
     ppvs = []
     npvs = []
@@ -255,7 +253,7 @@ def threshold_plot_2(y_true, y_pred, filename, extra_data=None):
 
     print(y_true)
 
-    from metrics import get_classification_metrics, auc, ppv, npv, accuracy, balanced_accuracy
+    from metrics import ppv, npv, accuracy, balanced_accuracy
 
     ppvs = []
     npvs = []

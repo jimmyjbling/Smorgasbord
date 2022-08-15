@@ -5,8 +5,8 @@ from datetime import datetime
 from itertools import product
 from functools import partial
 
-from dataset import QSARDataset, ScreeningDataset
-from descriptor import DescriptorCalculator
+from smorgasbord.dataset import QSARDataset, ScreeningDataset
+from smorgasbord.descriptor import DescriptorCalculator
 from procedure import Procedure
 
 
