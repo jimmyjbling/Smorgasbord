@@ -90,7 +90,7 @@ class TestDataset(unittest.TestCase):
 
         from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath ="../test_data/short.csv",
+        dataset = QSARDataset(filepath ="../test/test_data/short.csv",
                               delimiter = ",",
                               curation = None,
                               label = "continuous",
@@ -114,7 +114,7 @@ class TestModeling(unittest.TestCase):
 
         from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath ="../test_data/short.csv",
+        dataset = QSARDataset(filepath ="../test/test_data/short.csv",
                               delimiter = ",",
                               label = "continuous",
                               label_col = 1,
@@ -147,7 +147,7 @@ class TestModeling(unittest.TestCase):
 
         from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath ="../test_data/logp.tsv",
+        dataset = QSARDataset(filepath ="../test/test_data/logp.tsv",
                               delimiter = "\t",
                               curation = None,
                               label = "continuous",
@@ -262,7 +262,7 @@ class TestModeling(unittest.TestCase):
 
         from smorgasbord.dataset import QSARDataset
 
-        dataset = QSARDataset(filepath ="../test_data/logp.tsv",
+        dataset = QSARDataset(filepath ="../test/test_data/logp.tsv",
                               delimiter = "\t",
                               curation = None,
                               label = "continuous",
@@ -357,7 +357,7 @@ class TestPlate(unittest.TestCase):
         from old.plate import Plate
         from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath ="../test_data/logp.tsv",
+        dataset1 = QSARDataset(filepath ="../test/test_data/logp.tsv",
                                delimiter = "\t",
                                curation = None,
                                label = "continuous",
@@ -366,7 +366,7 @@ class TestPlate(unittest.TestCase):
                                cutoff = 4.5)
 
 
-        dataset2 = QSARDataset(filepath ="../test_data/short.csv",
+        dataset2 = QSARDataset(filepath ="../test/test_data/short.csv",
                                delimiter = ",",
                                curation = None,
                                label = "continuous",
@@ -401,7 +401,7 @@ class TestPlate(unittest.TestCase):
         from old.plate import Plate
         from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath ="../test_data/logp.tsv",
+        dataset1 = QSARDataset(filepath ="../test/test_data/logp.tsv",
                                delimiter = "\t",
                                curation = None,
                                label = "continuous",
@@ -410,7 +410,7 @@ class TestPlate(unittest.TestCase):
                                cutoff = 4.5)
 
 
-        dataset2 = QSARDataset(filepath ="../test_data/short.csv",
+        dataset2 = QSARDataset(filepath ="../test/test_data/short.csv",
                                delimiter = ",",
                                curation = None,
                                label = "continuous",
@@ -444,7 +444,7 @@ class TestPlate(unittest.TestCase):
         from old.plate import Plate
         from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath ="../test_data/logp.tsv",
+        dataset1 = QSARDataset(filepath ="../test/test_data/logp.tsv",
                                delimiter = "\t",
                                curation = None,
                                label = "continuous",
@@ -453,7 +453,7 @@ class TestPlate(unittest.TestCase):
                                cutoff = 4.5)
 
 
-        dataset2 = QSARDataset(filepath ="../test_data/short.csv",
+        dataset2 = QSARDataset(filepath ="../test/test_data/short.csv",
                                delimiter = ",",
                                curation = None,
                                label = "continuous",
@@ -496,7 +496,7 @@ class TestPlate(unittest.TestCase):
         from old.plate import Plate
         from smorgasbord.dataset import QSARDataset
 
-        dataset1 = QSARDataset(filepath ="../test_data/herg.sdf",
+        dataset1 = QSARDataset(filepath ="../test/test_data/herg.sdf",
                                delimiter = "\t",
                                curation = None,
                                label = "continuous",
