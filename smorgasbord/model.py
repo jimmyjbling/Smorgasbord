@@ -66,6 +66,9 @@ class QSARModel:
     def is_regressor(self):
         raise NotImplementedError
 
+    def __str__(self):
+        return ";".join([f"{key}:{val}" for key, val in self._args.items()])
+
 
 class RandomForestClassifier(QSARModel):
     def __init__(self, **kwargs):

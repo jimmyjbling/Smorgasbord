@@ -82,6 +82,10 @@ class DescriptorCalculator:
 
         return mordred_desc
 
+    def calc_morgan_rdkit(self, df, radius=3, n_bits=2048, count=False, use_chirality=False):
+        return np.hstack((self.calc_morgan(df, radius=radius, n_bits=n_bits, count=count, use_chirality=use_chirality),
+                          self.calc_rdkit(df)))
+
     @staticmethod
     def rdkit_desc_name():
         return [x[0] for x in RDKitDescriptors.descList]

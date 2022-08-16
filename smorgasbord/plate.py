@@ -316,7 +316,7 @@ class Plate:
 
     @staticmethod
     def _to_string(dataset, model, desc_func, samp_func, proc):
-        return "_".join([dataset.name, dataset.descriptor.get_string(desc_func), str(samp_func), type(model).__name__,  proc.func.__func__.__name__])
+        return "_".join([dataset.name, dataset.descriptor.get_string(desc_func), str(samp_func), str(model), proc.func.__func__.__name__])
 
     def _check_for_results(self, overall_results):
         if overall_results is None:
