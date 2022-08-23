@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem.PandasTools import LoadSDF
-from descriptor import DatasetDescriptorCalculator
-from sampling import DatasetSampler
+from smorgasbord.descriptor import DatasetDescriptorCalculator
+from smorgasbord.sampling import DatasetSampler
 import hashlib
 import copy
 import os

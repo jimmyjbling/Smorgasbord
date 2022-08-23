@@ -447,4 +447,3 @@ def LoadSDF(filename, idName='ID', molColName='ROMol', includeFingerprints=False
     RenderImagesInAllDataFrames(images=True)
     return pd.DataFrame(records, index=indices)
 
-LoadSDF(f"C:\\Users\\welln\\OneDrive\\TropshaLab\\Projects\\Smorgasbord\\SDF-FOR-MODI\\DRASTIC\\{1}.sdf")

@@ -8,7 +8,7 @@ import torch.nn.functional as F
 #  not to self I think using the sklearn api and building custom models from a given base class should suffice
 
 # TODO need to add wrapper calls for all sklearn models that we want to support by default with auto loading plates
-from qsar_utils import modi
+from smorgasbord.qsar_utils import modi
 
 
 def default(dictionary, key, default_val):

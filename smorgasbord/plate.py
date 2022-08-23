@@ -7,7 +7,7 @@ from functools import partial
 
 from smorgasbord.dataset import QSARDataset, ScreeningDataset
 from smorgasbord.descriptor import DescriptorCalculator
-from procedure import Procedure
+from smorgasbord.procedure import Procedure
 
 
 class Plate:
@@ -20,6 +20,10 @@ class Plate:
         self._save_models = save_models
         self._generate_reports = generate_report
         self._output_dir = output_dir if output_dir is not None else os.path.join(os.getcwd(), str(datetime.now()))
+
+        if not os.path.exists(self._output_dir):
+            os.mkdir(self._output_dir)
+
         self._random_state = random_state if random_state is not None else 42  # lol it is the answer
 
         self.datasets = []
@@ -197,17 +201,17 @@ class Plate:
 
         from tqdm import tqdm
         # calculate descriptors for every dataset first
-        desc_combos = product(self.datasets, self.descriptor_functions)
+        desc_combos = list(product(self.datasets, self.descriptor_functions))
         for dataset, (desc_func, kwargs) in tqdm(desc_combos):
             dataset.get_descriptor(desc_func, **kwargs)
 
         # calculate sampling masks for everyone next
-        samp_combos = product(self.datasets, self.sampling_methods)
+        samp_combos = list(product(self.datasets, self.sampling_methods))
         for dataset, samp_func in tqdm(samp_combos):
             dataset.balance(samp_func)
 
         # now run all the procedures
-        combos = self._make_combos()
+        combos = list(self._make_combos())
 
         overall_results = {}
 
@@ -220,6 +224,9 @@ class Plate:
                 for key in res.keys():
                     file_name = self._to_string(dataset, model, desc_func, samp_func, proc) + ".pkl"
                     file_loc = os.path.join(self._output_dir, "models", file_name)
+
+                    if not os.path.exists(os.path.join(self._output_dir, "models")):
+                        os.mkdir(os.path.join(self._output_dir, "models"))
 
                     # trys to use manual model saving, otherwise defaults to trying to pickle
                     if hasattr(key, "save"):
@@ -308,7 +315,7 @@ class Plate:
 
     @staticmethod
     def _get_model(model_name, **kwargs):
-        import model
+        from smorgasbord import model
         if model_name in dir(model):
             return model.__dict__[model_name](**kwargs)
         else:
@@ -386,5 +393,5 @@ class Plate:
 
 
 plate = Plate()
-plate.from_yaml("example_plate.yaml")
+plate.from_yaml("/home/james/Projects/Smorgasbord/Zoe/zoe_plate.yaml")
 plate.run(print_output=True)

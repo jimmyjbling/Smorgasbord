@@ -1,4 +1,4 @@
-from metrics import get_default_classification_metrics, get_default_regression_metrics
+from smorgasbord.metrics import get_default_classification_metrics, get_default_regression_metrics
 
 
 class Procedure:
