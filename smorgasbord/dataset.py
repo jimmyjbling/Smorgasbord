@@ -306,7 +306,10 @@ class QSARDataset(BaseDataset):
 
     def get_descriptor(self, desc_name, mask_name=None, **kwargs):
         mask = self._union_failed_mask(mask_name) if mask_name is not None else list(self._failed.keys())
-        return np.delete(self.descriptor.get_descriptor_value(desc_name, self.dataset, **kwargs), mask, axis=0)
+        desc = self.descriptor.get_descriptor_value(desc_name, self.dataset, **kwargs)
+        # this line will allow the removal of bad rows post descriptor generation and add them to the failed mask
+        [self._failed.setdefault(x, []).append(f"failed to generate descriptor {desc_name}") for x in list(set(np.where(np.isnan(desc))[0]))]
+        return np.delete(desc, mask, axis=0)
 
     def get_label(self, mask_name=None):
         mask = self._union_failed_mask(mask_name) if mask_name is not None else list(self._failed.keys())
@@ -324,7 +327,7 @@ class QSARDataset(BaseDataset):
         else:
             raise Exception(f"Supplied kind {kind} not implemented in get_labels()")
 
-        return np.array(self._labels[kind].drop(index=self._failed.keys()), dtype=dtype)
+        return np.array(self._labels[kind], dtype=dtype)
 
     def set_label(self, name, label):
         label = np.array(label)

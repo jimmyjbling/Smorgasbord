@@ -132,8 +132,10 @@ def mcc(y_true, y_pred):
 def auc(y_true, y_pred):
 
     from sklearn.metrics import roc_auc_score
-
-    return roc_auc_score(y_true, y_pred)
+    try:
+        return roc_auc_score(y_true, y_pred)
+    except ValueError:
+        return None
 
 
 def get_default_classification_metrics():
