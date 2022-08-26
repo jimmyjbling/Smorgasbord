@@ -75,8 +75,11 @@ class Procedure:
     def cross_validate(self, model, dataset, descriptor_func, sampling_func, cv=None, **kwargs):
         from copy import deepcopy
         if cv is None:
-            from sklearn.model_selection import StratifiedKFold
-            cv = StratifiedKFold
+            from sklearn.model_selection import StratifiedKFold, KFold
+            if model.is_classifier():
+                cv = StratifiedKFold
+            else:
+                cv = KFold
         else:
             from sklearn import model_selection
             if cv in dir(model_selection):
@@ -100,10 +103,14 @@ class Procedure:
 
             model_copy.fit(X_train, y_train)
 
-            if "predict_proba" in dir(model_copy) and callable(model_copy.__getattribute__("predict_proba")):
-                y_pred = model_copy.predict_proba(X_test)
-            else:
-                y_pred = model_copy.predict(X_test)
+            # TODO this needs to be rethought and fixed
+            # if "predict_proba" in dir(model_copy) and callable(model_copy.__getattribute__("predict_proba")):
+            #     y_pred = model_copy.predict_proba(X_test)
+            # else:
+            #     y_pred = model_copy.predict(X_test)
+
+            # tmp fix
+            y_pred = model_copy.predict(X_test)
 
             res = self._eval(y_test, y_pred)
 

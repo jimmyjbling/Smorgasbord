@@ -320,12 +320,13 @@ class QSARDataset(BaseDataset):
         takes the private _labels and drops failed indices (failed rdkit mols, missing labels, etc)
         josh will always use this to access the labels and leave the original labels alone
         """
+        if kind not in self._labels.keys():
+            raise ValueError(f"Label {kind} does not exist")
+
         if kind == "binary" or kind == "multiclass":
             dtype = int
-        elif kind == "continuous":
-            dtype = float
         else:
-            raise Exception(f"Supplied kind {kind} not implemented in get_labels()")
+            dtype = float
 
         return np.array(self._labels[kind], dtype=dtype)
 
@@ -534,6 +535,10 @@ class QSARDataset(BaseDataset):
         label = np.array(label) / max(label)
 
         self.set_label(normalized_label_name, label)
+
+    def log_transform_label(self, name):
+        label = -np.log10(self.get_labels(self.get_desired_label()))
+        self.set_label(name, label)
 
     def to_dict(self):
         return {"Arguments": self.stored_args,

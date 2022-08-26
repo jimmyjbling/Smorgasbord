@@ -67,7 +67,58 @@ class QSARModel:
         raise NotImplementedError
 
     def __str__(self):
-        return ";".join([f"{key}:{val}" for key, val in self._args.items()])
+        return self.__class__.__name__ + ";".join([f"{key}:{val}" for key, val in self._args.items()])
+
+
+class KNN(QSARModel):
+    def __init__(self, **kwargs):
+        from sklearn.cluster import KMeans as KM
+        self._args = kwargs
+        self.model = KM(**kwargs)
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def predict_probability(self, X):
+        return None
+
+    def get_params(self):
+        return self._args
+
+    def is_classifier(self):
+        return False
+
+    def is_regressor(self):
+        return True
+
+
+
+class Ridge(QSARModel):
+    def __init__(self, **kwargs):
+        from sklearn.linear_model import Ridge as R
+        self._args = kwargs
+        self.model = R(**kwargs)
+
+    def fit(self, X, y):
+        self.model.fit(X, y)
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+    def predict_probability(self, X):
+        return None
+
+    def get_params(self):
+        return self._args
+
+    def is_classifier(self):
+        return False
+
+    def is_regressor(self):
+        return True
 
 
 class RandomForestClassifier(QSARModel):

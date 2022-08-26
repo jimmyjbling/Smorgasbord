@@ -392,6 +392,11 @@ class Plate:
         self.procedure.output_dir = self._output_dir
 
 
-plate = Plate()
-plate.from_yaml("/home/james/Projects/Smorgasbord/Zoe/zoe_plate.yaml")
-plate.run(print_output=True)
+if __name__ == "__main__":
+    plate = Plate()
+    plate.from_yaml("/home/james/Projects/Smorgasbord/Zoe/reg_plate.yaml")
+    for d in plate.datasets:
+        d.log_transform_label("continuous")
+        d.to_binary(5)
+        d.set_desired_label("binary")
+    plate.run(print_output=True)
