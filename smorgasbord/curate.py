@@ -66,7 +66,7 @@ def curate_mol(mol):
         return None, history
 
     if Chem.MolToInchi(newmol) != Chem.MolToInchi(mol):
-        self.history.add_modification(text="Detected salts, removed")
+        history.add_modification(text="Detected salts, removed")
         mol = newmol
 
     # structure normalization
@@ -79,7 +79,7 @@ def curate_mol(mol):
         return None, history
 
     if Chem.MolToInchi(newmol) != Chem.MolToInchi(mol):
-        self.history.add_modification(text="Normalization(s) applied")
+        history.add_modification(text="Normalization(s) applied")
         mol = newmol
 
     # tautomer selection
@@ -104,7 +104,7 @@ def curate_mol(mol):
         return None, history
 
     if Chem.MolToInchi(newmol) != Chem.MolToInchi(mol):
-        self.history.add_modification(text="Metal(s) disconnected")
+        history.add_modification(text="Metal(s) disconnected")
         mol = newmol
 
     # final check for only valid atoms

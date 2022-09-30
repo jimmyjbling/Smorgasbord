@@ -268,11 +268,13 @@ def umap(X, labels, save_loc=None, **kwargs):
     None
 
     """
-    import umap as _umap
+    import umap as umap_package
+    import umap.plot as umap_plot
+
     import matplotlib.pyplot as plt
 
-    mapper = _umap.UMAP(**kwargs).fit(X)
-    _umap.plot.points(mapper, labels=labels)
+    mapper = umap_package.UMAP(**kwargs).fit(X)
+    umap_plot.points(mapper, labels=labels)
 
     if save_loc is not None:
         plt.savefig(save_loc)

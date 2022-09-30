@@ -88,7 +88,7 @@ class TestDataset(unittest.TestCase):
 
     def setUp(self):
 
-        from smorgasbord.dataset import QSARDataset
+        from dataset import QSARDataset
 
         dataset = QSARDataset(filepath ="../test/test_data/short.csv",
                               delimiter = ",",
@@ -355,7 +355,7 @@ class TestPlate(unittest.TestCase):
     def test_to_yaml(self):
 
         from old.plate import Plate
-        from smorgasbord.dataset import QSARDataset
+        from dataset import QSARDataset
 
         dataset1 = QSARDataset(filepath ="../test/test_data/logp.tsv",
                                delimiter = "\t",
@@ -399,7 +399,7 @@ class TestPlate(unittest.TestCase):
         filename = "../dummy_plate_out.yaml"
 
         from old.plate import Plate
-        from smorgasbord.dataset import QSARDataset
+        from dataset import QSARDataset
 
         dataset1 = QSARDataset(filepath ="../test/test_data/logp.tsv",
                                delimiter = "\t",
@@ -422,7 +422,7 @@ class TestPlate(unittest.TestCase):
 
         model1 = RF()
 
-        from smorgasbord.descriptor import MorganDescriptor
+        from descriptor import MorganDescriptor
         descriptor1 = MorganDescriptor()
 
         this_plate = Plate(datasets= [dataset1, dataset2],
@@ -442,7 +442,7 @@ class TestPlate(unittest.TestCase):
 
 
         from old.plate import Plate
-        from smorgasbord.dataset import QSARDataset
+        from dataset import QSARDataset
 
         dataset1 = QSARDataset(filepath ="../test/test_data/logp.tsv",
                                delimiter = "\t",

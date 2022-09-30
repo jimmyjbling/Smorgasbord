@@ -5,9 +5,9 @@ from datetime import datetime
 from itertools import product
 from functools import partial
 
-from smorgasbord.dataset import QSARDataset, ScreeningDataset
-from smorgasbord.descriptor import DescriptorCalculator
-from smorgasbord.procedure import Procedure
+from dataset import QSARDataset, ScreeningDataset
+from descriptor import DescriptorCalculator
+from procedure import Procedure
 
 
 class Plate:
@@ -19,7 +19,11 @@ class Plate:
 
         self._save_models = save_models
         self._generate_reports = generate_report
-        self._output_dir = output_dir if output_dir is not None else os.path.join(os.getcwd(), str(datetime.now()))
+
+        # doesn't run on windows
+        alt_now = datetime.strftime(datetime.now(), '%m-%d-%Y_%H_%M_%S')
+        self._output_dir = output_dir if output_dir is not None else os.path.join(os.getcwd(), alt_now)
+        # self._output_dir = output_dir if output_dir is not None else os.path.join(os.getcwd(), str(datetime.now()))
 
         if not os.path.exists(self._output_dir):
             os.mkdir(self._output_dir)
@@ -219,7 +223,7 @@ class Plate:
             res = proc(model=model, dataset=dataset, descriptor_func=desc_func, sampling_func=samp_func)
 
             overall_results[(dataset, model, desc_func, samp_func, proc)] = res
-
+            # print('Save models?', self._save_models)
             if self._save_models:
                 for key in res.keys():
                     file_name = self._to_string(dataset, model, desc_func, samp_func, proc) + ".pkl"
@@ -315,7 +319,7 @@ class Plate:
 
     @staticmethod
     def _get_model(model_name, **kwargs):
-        from smorgasbord import model
+        import model
         if model_name in dir(model):
             return model.__dict__[model_name](**kwargs)
         else:
@@ -394,9 +398,9 @@ class Plate:
 
 if __name__ == "__main__":
     plate = Plate()
-    plate.from_yaml("/home/james/Projects/Smorgasbord/Zoe/reg_plate.yaml")
-    for d in plate.datasets:
-        d.log_transform_label("continuous")
-        d.to_binary(5)
-        d.set_desired_label("binary")
+    plate.from_yaml("/Users/henry/PycharmProjects/Smorgasboard/henry_example_plate.yaml")
+    # for d in plate.datasets:
+    #     d.log_transform_label("continuous")
+    #     d.to_binary(5)
+    #     d.set_desired_label("binary")
     plate.run(print_output=True)

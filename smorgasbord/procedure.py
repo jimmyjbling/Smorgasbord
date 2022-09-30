@@ -1,4 +1,4 @@
-from smorgasbord.metrics import get_default_classification_metrics, get_default_regression_metrics
+from metrics import get_default_classification_metrics, get_default_regression_metrics
 
 
 class Procedure:
@@ -92,12 +92,23 @@ class Procedure:
 
         cv_models = {}
 
-        y = dataset.get_label(mask_name=sampling_func)
-        X = dataset.get_descriptor(descriptor_func, mask_name=sampling_func)
+        # Use None sampling here for the whole dataset to not skew the test set
+        y = dataset.get_label(mask_name=None)
+        X = dataset.get_descriptor(descriptor_func, mask_name=None)
 
+        import numpy as np
         for train_index, test_index in s.split(X, y):
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
+
+            # Do sampling on JUST training data
+            if sampling_func is not None:
+                X_train, y_train = dataset.sampler.get_func(mask_name=sampling_func)(X_train, y_train)
+
+            print('Sampling func:', sampling_func)
+            print('Dataset sizes:', y_train.shape, y_test.shape)
+            print('Train balance:', np.unique(y_train, return_counts=True))
+            print('Test balance:', np.unique(y_test, return_counts=True))
 
             model_copy = deepcopy(model)
 
